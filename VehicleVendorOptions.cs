@@ -7,8 +7,8 @@ using System.Linq;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.0.0")]
-    [Description("Allows adjusting fuel and ownership of vehicles spawned at vendors.")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.1.0")]
+    [Description("Allows vehicles spawned at vendors to have configurable fuel, properly assigned ownership, and to be free with permissions.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
         #region Fields
@@ -18,6 +18,48 @@ namespace Oxide.Plugins
         private const string Permission_Ownership_ScrapHeli = "vehiclevendoroptions.ownership.scraptransport";
         private const string Permission_Ownership_Rowboat = "vehiclevendoroptions.ownership.rowboat";
         private const string Permission_Ownership_RHIB = "vehiclevendoroptions.ownership.rhib";
+
+        private const string Permission_Free_All = "vehiclevendoroptions.free.allvehicles";
+
+        private readonly DialogResponseConfig[] dialogResponseConfigs = new DialogResponseConfig[]
+        {
+            new DialogResponseConfig()
+            {
+                freePermission = "vehiclevendoroptions.free.minicopter",
+                matchSpeechNode = "minicopterbuy",
+                responseAction = "buyminicopter",
+                successSpeechNode = "success"
+            },
+            new DialogResponseConfig()
+            {
+                freePermission = "vehiclevendoroptions.free.scraptransport",
+                matchSpeechNode = "transportbuy",
+                responseAction = "buytransport",
+                successSpeechNode = "success"
+            },
+            new DialogResponseConfig()
+            {
+                freePermission = "vehiclevendoroptions.free.rowboat",
+                matchSpeechNode = "pay_rowboat",
+                responseAction = "buyboat",
+                successSpeechNode = "buysuccess"
+            },
+            new DialogResponseConfig()
+            {
+                freePermission = "vehiclevendoroptions.free.rhib",
+                matchSpeechNode = "pay_rhib",
+                responseAction = "buyrhib",
+                successSpeechNode = "buysuccess"
+            },
+        };
+
+        internal class DialogResponseConfig
+        {
+            public string freePermission;
+            public string matchSpeechNode;
+            public string responseAction;
+            public string successSpeechNode;
+        }
 
         private Configuration pluginConfig;
 
@@ -34,11 +76,39 @@ namespace Oxide.Plugins
             permission.RegisterPermission(Permission_Ownership_ScrapHeli, this);
             permission.RegisterPermission(Permission_Ownership_Rowboat, this);
             permission.RegisterPermission(Permission_Ownership_RHIB, this);
+
+            permission.RegisterPermission(Permission_Free_All, this);
+
+            foreach (var responseConfig in dialogResponseConfigs)
+                permission.RegisterPermission(responseConfig.freePermission, this);
         }
 
         private void OnEntitySpawned(MiniCopter vehicle) => HandleSpawn(vehicle);
 
         private void OnEntitySpawned(MotorRowboat vehicle) => HandleSpawn(vehicle);
+
+        private object OnNpcConversationRespond(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ConversationData.ResponseNode responseNode)
+        {
+            if (!(npcTalking is VehicleVendor))
+                return null;
+
+            foreach (var responseConfig in dialogResponseConfigs)
+            {
+                if (responseNode.resultingSpeechNode != responseConfig.matchSpeechNode)
+                    continue;
+
+                if (!HasPermissionAny(player.UserIDString, Permission_Free_All, responseConfig.freePermission))
+                    return null;
+
+                if (!TryConversationAction(npcTalking, player, responseConfig.responseAction))
+                    return null;
+
+                AdvanceOrEndConveration(npcTalking, player, conversationData, responseConfig.successSpeechNode);
+                return false;
+            }
+
+            return null;
+        }
 
         #endregion
 
@@ -105,10 +175,13 @@ namespace Oxide.Plugins
                 vehicle.OwnerID = basePlayer.userID;
         }
 
-        private bool HasPermissionAny(IPlayer player, params string[] permissionNames)
+        private bool HasPermissionAny(IPlayer player, params string[] permissionNames) =>
+            HasPermissionAny(player.Id, permissionNames);
+
+        private bool HasPermissionAny(string userIdString, params string[] permissionNames)
         {
             foreach (var perm in permissionNames)
-                if (perm != null && permission.UserHasPermission(player.Id, perm))
+                if (perm != null && permission.UserHasPermission(userIdString, perm))
                     return true;
 
             return false;
@@ -131,6 +204,45 @@ namespace Oxide.Plugins
                 return Permission_Ownership_Rowboat;
 
             return null;
+        }
+
+        private bool TryConversationAction(NPCTalking npcTalking, BasePlayer player, string action)
+        {
+            var resultAction = npcTalking.conversationResultActions.FirstOrDefault(result => result.action == action);
+            if (resultAction == null)
+                return false;
+
+            // This re-implements game logic to kick out other conversing players when a vehicle spawns
+            npcTalking.CleanupConversingPlayers();
+            foreach (BasePlayer conversingPlayer in npcTalking.conversingPlayers)
+            {
+                if (conversingPlayer != player && conversingPlayer != null)
+                {
+                    int speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex("startbusy");
+                    npcTalking.ForceSpeechNode(conversingPlayer, speechNodeIndex);
+                }
+            }
+
+            // Spawn the vehicle
+            npcTalking.lastActionPlayer = player;
+            npcTalking.BroadcastEntityMessage(resultAction.broadcastMessage, resultAction.broadcastRange);
+            npcTalking.lastActionPlayer = null;
+
+            return true;
+        }
+
+        private void AdvanceOrEndConveration(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, string targetSpeechName)
+        {
+            var speechNodeIndex = conversationData.GetSpeechNodeIndex(targetSpeechName);
+            if (speechNodeIndex == -1)
+            {
+                npcTalking.ForceEndConversation(player);
+            }
+            else
+            {
+                var speechNode = conversationData.speeches[speechNodeIndex];
+                npcTalking.ForceSpeechNode(player, speechNodeIndex);
+            }
         }
 
         #endregion
