@@ -1,13 +1,14 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
+using Oxide.Core;
 using Oxide.Core.Libraries.Covalence;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.1.0")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.2.0")]
     [Description("Allows vehicles spawned at vendors to have configurable fuel, properly assigned ownership, and to be free with permissions.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -21,6 +22,7 @@ namespace Oxide.Plugins
         private const string Permission_Ownership_RidableHorse = "vehiclevendoroptions.ownership.ridablehorse";
 
         private const string Permission_Free_All = "vehiclevendoroptions.free.allvehicles";
+        private const string Permission_Free_RidableHorse = "vehiclevendoroptions.free.ridablehorse";
 
         private readonly DialogResponseConfig[] dialogResponseConfigs = new DialogResponseConfig[]
         {
@@ -80,6 +82,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(Permission_Ownership_RidableHorse, this);
 
             permission.RegisterPermission(Permission_Free_All, this);
+            permission.RegisterPermission(Permission_Free_RidableHorse, this);
 
             foreach (var responseConfig in dialogResponseConfigs)
                 permission.RegisterPermission(responseConfig.freePermission, this);
@@ -88,6 +91,17 @@ namespace Oxide.Plugins
         private void OnEntitySpawned(MiniCopter vehicle) => HandleSpawn(vehicle);
 
         private void OnEntitySpawned(MotorRowboat vehicle) => HandleSpawn(vehicle);
+
+        private object OnRidableAnimalClaim(RidableHorse horse, BasePlayer player)
+        {
+            if (!horse.IsForSale() || !HasPermissionAny(player.UserIDString, Permission_Free_All, Permission_Free_RidableHorse))
+                return null;
+
+            horse.SetFlag(BaseEntity.Flags.Reserved2, false);
+            horse.AttemptMount(player, doMountChecks: false);
+            Interface.CallHook("OnRidableAnimalClaimed", horse, player);
+            return false;
+        }
 
         private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player) =>
             SetOwnerIfPermission(horse, player);

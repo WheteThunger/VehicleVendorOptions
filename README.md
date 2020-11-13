@@ -30,6 +30,9 @@ Alternatively, you can grant permission by vehicle type:
 - `vehiclevendoroptions.free.scraptransport`
 - `vehiclevendoroptions.free.rowboat`
 - `vehiclevendoroptions.free.rhib`
+- `vehiclevendoroptions.free.ridablehorse`
+
+Note: Having permission to free horses still requires a saddle to be in your inventory for the claim option to appear client-side, but claiming the horse will not consume the saddle.
 
 ## Configuration
 
