@@ -2,7 +2,7 @@
 
 This plugin allows configuring several aspects of vehicles spawned by NPC vendors.
 
-- Configure initial fuel amount for each vehicle type, instead of using the game's default which is 20% of max stack size.
+- Configure initial fuel amount for each vehicle type, instead of using the game's default (50 for boats, and 20% of max stack size for helicopters).
 - Properly assign vehicle ownership to the player that purchases it, so other plugins can enable features based on the player's permissions.
 - Allow players with permission to obtain vehicles for free.
 
