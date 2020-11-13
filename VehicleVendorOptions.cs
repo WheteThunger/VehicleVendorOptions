@@ -18,6 +18,7 @@ namespace Oxide.Plugins
         private const string Permission_Ownership_ScrapHeli = "vehiclevendoroptions.ownership.scraptransport";
         private const string Permission_Ownership_Rowboat = "vehiclevendoroptions.ownership.rowboat";
         private const string Permission_Ownership_RHIB = "vehiclevendoroptions.ownership.rhib";
+        private const string Permission_Ownership_RidableHorse = "vehiclevendoroptions.ownership.ridablehorse";
 
         private const string Permission_Free_All = "vehiclevendoroptions.free.allvehicles";
 
@@ -76,6 +77,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(Permission_Ownership_ScrapHeli, this);
             permission.RegisterPermission(Permission_Ownership_Rowboat, this);
             permission.RegisterPermission(Permission_Ownership_RHIB, this);
+            permission.RegisterPermission(Permission_Ownership_RidableHorse, this);
 
             permission.RegisterPermission(Permission_Free_All, this);
 
@@ -86,6 +88,9 @@ namespace Oxide.Plugins
         private void OnEntitySpawned(MiniCopter vehicle) => HandleSpawn(vehicle);
 
         private void OnEntitySpawned(MotorRowboat vehicle) => HandleSpawn(vehicle);
+
+        private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player) =>
+            SetOwnerIfPermission(horse, player);
 
         private object OnNpcConversationRespond(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ConversationData.ResponseNode responseNode)
         {
@@ -171,6 +176,11 @@ namespace Oxide.Plugins
             var basePlayer = vehicle.creatorEntity as BasePlayer;
             if (basePlayer == null) return;
 
+            SetOwnerIfPermission(vehicle, basePlayer);
+        }
+
+        private void SetOwnerIfPermission(BaseVehicle vehicle, BasePlayer basePlayer)
+        {
             if (HasPermissionAny(basePlayer.IPlayer, Permission_Ownership_All, GetOwnershipPermission(vehicle)))
                 vehicle.OwnerID = basePlayer.userID;
         }
@@ -202,6 +212,9 @@ namespace Oxide.Plugins
 
             if (vehicle is MotorRowboat)
                 return Permission_Ownership_Rowboat;
+
+            if (vehicle is RidableHorse)
+                return Permission_Ownership_RidableHorse;
 
             return null;
         }

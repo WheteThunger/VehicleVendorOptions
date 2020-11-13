@@ -18,6 +18,7 @@ Alternatively, you can grant permissions by vehicle type:
 - `vehiclevendoroptions.ownership.scraptransport`
 - `vehiclevendoroptions.ownership.rowboat`
 - `vehiclevendoroptions.ownership.rhib`
+- `vehiclevendoroptions.ownership.ridablehorse`
 
 ### Free Vehicles
 
