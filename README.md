@@ -4,7 +4,8 @@ This plugin allows configuring several aspects of vehicles spawned by NPC vendor
 
 - Configure initial fuel amount for each vehicle type, instead of using the game's default (50 for boats, and 20% of max stack size for helicopters).
 - Properly assign vehicle ownership to the player that purchases it, so other plugins can enable features based on the player's permissions.
-- Allow players with permission to obtain vehicles for free.
+- Allows players with permission to obtain vehicles for free.
+- Allows adjusting vehicle prices.
 
 ## Permissions
 
@@ -41,19 +42,34 @@ Default configuration:
 {
   "Vehicles": {
     "Minicopter": {
-      "FuelAmount": 100
+      "FuelAmount": 100,
+      "ScrapCost": -1
     },
     "ScrapTransport": {
-      "FuelAmount": 100
+      "FuelAmount": 100,
+      "ScrapCost": -1
     },
     "Rowboat": {
-      "FuelAmount": 50
+      "FuelAmount": 50,
+      "ScrapCost": -1
     },
     "RHIB": {
-      "FuelAmount": 50
+      "FuelAmount": 50,
+      "ScrapCost": -1
     }
   }
 }
 ```
 
-`FuelAmount` -- The amount of low grade fuel to put in the vehicle's fuel tank when it spawns. Set to `-1` for the max stack size of low grade fuel on your server.
+- `FuelAmount` -- The amount of low grade fuel to put in the vehicle's fuel tank when it spawns.
+  - Set to `-1` for the max stack size of low grade fuel on your server.
+- `ScrapCost` -- The amount of scrap required to purchase the vehicle.
+  - Note: Changing this will unfortunately not change the price displayed on the UI since that is determined client-side.
+  - Set to `-1` for vanilla prices.
+    - This option is recommended if you want the prices to update automatically when the game developer changes them.
+    - This is the default setting, in case you didn't install the plugin for the purpose of changing prices.
+  - For reference, vanilla prices are:
+    - Minicopter: `750`
+    - ScrapTransport: `1250`
+    - Rowboat: `125`
+    - RHIB: `300`

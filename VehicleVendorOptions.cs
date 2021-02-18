@@ -3,12 +3,14 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using Oxide.Core;
 using Oxide.Core.Libraries.Covalence;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using static ConversationData;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.2.0")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.3.0")]
     [Description("Allows vehicles spawned at vendors to have configurable fuel, properly assigned ownership, and to be free with permissions.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -24,30 +26,36 @@ namespace Oxide.Plugins
         private const string Permission_Free_All = "vehiclevendoroptions.free.allvehicles";
         private const string Permission_Free_RidableHorse = "vehiclevendoroptions.free.ridablehorse";
 
-        private readonly DialogResponseConfig[] dialogResponseConfigs = new DialogResponseConfig[]
+        private const int MinHidddenSlot = 24;
+        private const int ScrapItemId = -932201673;
+
+        private Item _scrapItem;
+        private static Configuration _pluginConfig;
+
+        private readonly FreeVehicleConfig[] _freeVehicleConfigs = new FreeVehicleConfig[]
         {
-            new DialogResponseConfig()
+            new FreeVehicleConfig()
             {
                 freePermission = "vehiclevendoroptions.free.minicopter",
                 matchSpeechNode = "minicopterbuy",
                 responseAction = "buyminicopter",
                 successSpeechNode = "success"
             },
-            new DialogResponseConfig()
+            new FreeVehicleConfig()
             {
                 freePermission = "vehiclevendoroptions.free.scraptransport",
                 matchSpeechNode = "transportbuy",
                 responseAction = "buytransport",
                 successSpeechNode = "success"
             },
-            new DialogResponseConfig()
+            new FreeVehicleConfig()
             {
                 freePermission = "vehiclevendoroptions.free.rowboat",
                 matchSpeechNode = "pay_rowboat",
                 responseAction = "buyboat",
                 successSpeechNode = "buysuccess"
             },
-            new DialogResponseConfig()
+            new FreeVehicleConfig()
             {
                 freePermission = "vehiclevendoroptions.free.rhib",
                 matchSpeechNode = "pay_rhib",
@@ -56,7 +64,7 @@ namespace Oxide.Plugins
             },
         };
 
-        internal class DialogResponseConfig
+        internal class FreeVehicleConfig
         {
             public string freePermission;
             public string matchSpeechNode;
@@ -64,7 +72,35 @@ namespace Oxide.Plugins
             public string successSpeechNode;
         }
 
-        private Configuration pluginConfig;
+        private readonly VehiclePriceConfig[] _vehiclePriceConfigs = new VehiclePriceConfig[]
+        {
+            new VehiclePriceConfig()
+            {
+                responseAction = "buyminicopter",
+                GetPrice = () => _pluginConfig.Vehicles.Minicopter.ScrapCost
+            },
+            new VehiclePriceConfig()
+            {
+                responseAction = "buytransport",
+                GetPrice = () => _pluginConfig.Vehicles.ScrapTransport.ScrapCost
+            },
+            new VehiclePriceConfig()
+            {
+                responseAction = "buyboat",
+                GetPrice = () => _pluginConfig.Vehicles.Rowboat.ScrapCost
+            },
+            new VehiclePriceConfig()
+            {
+                responseAction = "buyrhib",
+                GetPrice = () => _pluginConfig.Vehicles.RHIB.ScrapCost
+            }
+        };
+
+        internal class VehiclePriceConfig
+        {
+            public string responseAction;
+            public Func<int> GetPrice;
+        }
 
         #endregion
 
@@ -72,7 +108,7 @@ namespace Oxide.Plugins
 
         private void Init()
         {
-            pluginConfig = Config.ReadObject<Configuration>();
+            _pluginConfig = Config.ReadObject<Configuration>();
 
             permission.RegisterPermission(Permission_Ownership_All, this);
             permission.RegisterPermission(Permission_Ownership_MiniCopter, this);
@@ -84,8 +120,18 @@ namespace Oxide.Plugins
             permission.RegisterPermission(Permission_Free_All, this);
             permission.RegisterPermission(Permission_Free_RidableHorse, this);
 
-            foreach (var responseConfig in dialogResponseConfigs)
+            foreach (var responseConfig in _freeVehicleConfigs)
                 permission.RegisterPermission(responseConfig.freePermission, this);
+        }
+
+        private void OnServerInitialized()
+        {
+            _scrapItem = ItemManager.CreateByItemID(ScrapItemId);
+        }
+
+        private void Unload()
+        {
+            _scrapItem?.Remove();
         }
 
         private void OnEntitySpawned(MiniCopter vehicle) => HandleSpawn(vehicle);
@@ -106,25 +152,16 @@ namespace Oxide.Plugins
         private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player) =>
             SetOwnerIfPermission(horse, player);
 
-        private object OnNpcConversationRespond(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ConversationData.ResponseNode responseNode)
+        private object OnNpcConversationRespond(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
         {
             if (!(npcTalking is VehicleVendor))
                 return null;
 
-            foreach (var responseConfig in dialogResponseConfigs)
-            {
-                if (responseNode.resultingSpeechNode != responseConfig.matchSpeechNode)
-                    continue;
-
-                if (!HasPermissionAny(player.UserIDString, Permission_Free_All, responseConfig.freePermission))
-                    return null;
-
-                if (!TryConversationAction(npcTalking, player, responseConfig.responseAction))
-                    return null;
-
-                AdvanceOrEndConveration(npcTalking, player, conversationData, responseConfig.successSpeechNode);
+            if (TryPurchaseFree(npcTalking, player, conversationData, responseNode))
                 return false;
-            }
+
+            MaybeFakePlayerScrap(npcTalking, player, conversationData, responseNode);
+            MaybeAddPlayerScrap(npcTalking, player, conversationData, responseNode);
 
             return null;
         }
@@ -133,45 +170,11 @@ namespace Oxide.Plugins
 
         #region Helper Methods
 
-        private void HandleSpawn(BaseVehicle vehicle)
-        {
-            if (Rust.Application.isLoadingSave) return;
-
-            NextTick(() =>
-            {
-                if (vehicle.creatorEntity == null) return;
-
-                var vehicleConfig = GetVehicleConfig(vehicle);
-                if (vehicleConfig == null) return;
-
-                AdjustFuel(vehicle, vehicleConfig.FuelAmount);
-                MaybeSetOwner(vehicle);
-            });
-        }
-
-        private VehicleConfig GetVehicleConfig(BaseVehicle vehicle)
-        {
-            // Must go before MiniCopter
-            if (vehicle is ScrapTransportHelicopter)
-                return pluginConfig.Vehicles.ScrapTransport;
-
-            if (vehicle is MiniCopter)
-                return pluginConfig.Vehicles.Minicopter;
-
-            // Must go before MotorRowboat
-            if (vehicle is RHIB)
-                return pluginConfig.Vehicles.RHIB;
-
-            if (vehicle is MotorRowboat)
-                return pluginConfig.Vehicles.Rowboat;
-
-            return null;
-        }
-
-        private void AdjustFuel(BaseVehicle vehicle, int desiredFuelAmount)
+        private static void AdjustFuel(BaseVehicle vehicle, int desiredFuelAmount)
         {
             var fuelSystem = vehicle.GetFuelSystem();
-            if (fuelSystem == null) return;
+            if (fuelSystem == null)
+                return;
 
             var fuelAmount = desiredFuelAmount < 0
                 ? fuelSystem.GetFuelContainer().allowedItem.stackable
@@ -185,10 +188,112 @@ namespace Oxide.Plugins
             }
         }
 
+        private static void RefreshInventory(BasePlayer player) =>
+            player.inventory.SendUpdatedInventory(PlayerInventory.Type.Main, player.inventory.containerMain);
+
+        private static int GetNextAvailableSlot(ProtoBuf.ItemContainer containerInfo)
+        {
+            var highestSlot = MinHidddenSlot;
+            foreach (var item in containerInfo.contents)
+            {
+                if (item.slot > highestSlot)
+                    highestSlot = item.slot;
+            }
+            return highestSlot;
+        }
+
+        private static ProtoBuf.Item FindItem(List<ProtoBuf.Item> itemList, int itemId)
+        {
+            foreach (var item in itemList)
+                if (item.itemid == itemId)
+                    return item;
+
+            return null;
+        }
+
+        private static int GetRequiredScrapAmount(ResponseNode responseNode)
+        {
+            foreach (var condition in responseNode.conditions)
+            {
+                if (condition.conditionType == ConversationCondition.ConditionType.HASSCRAP)
+                    return condition.conditionAmount;
+            }
+            return -1;
+        }
+
+        private static SpeechNode FindSpeechNodeByName(ConversationData conversationData, string speechNodeName)
+        {
+            foreach (var speechNode in conversationData.speeches)
+            {
+                if (speechNode.shortname == speechNodeName)
+                    return speechNode;
+            }
+            return null;
+        }
+
+        private static bool TryConversationAction(NPCTalking npcTalking, BasePlayer player, string action)
+        {
+            var resultAction = npcTalking.conversationResultActions.FirstOrDefault(result => result.action == action);
+            if (resultAction == null)
+                return false;
+
+            // This re-implements game logic to kick out other conversing players when a vehicle spawns
+            npcTalking.CleanupConversingPlayers();
+            foreach (BasePlayer conversingPlayer in npcTalking.conversingPlayers)
+            {
+                if (conversingPlayer != player && conversingPlayer != null)
+                {
+                    int speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex("startbusy");
+                    npcTalking.ForceSpeechNode(conversingPlayer, speechNodeIndex);
+                }
+            }
+
+            // Spawn the vehicle
+            npcTalking.lastActionPlayer = player;
+            npcTalking.BroadcastEntityMessage(resultAction.broadcastMessage, resultAction.broadcastRange);
+            npcTalking.lastActionPlayer = null;
+
+            return true;
+        }
+
+        private static void AdvanceOrEndConveration(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, string targetSpeechName)
+        {
+            var speechNodeIndex = conversationData.GetSpeechNodeIndex(targetSpeechName);
+            if (speechNodeIndex == -1)
+            {
+                npcTalking.ForceEndConversation(player);
+            }
+            else
+            {
+                var speechNode = conversationData.speeches[speechNodeIndex];
+                npcTalking.ForceSpeechNode(player, speechNodeIndex);
+            }
+        }
+
+        private void HandleSpawn(BaseVehicle vehicle)
+        {
+            if (Rust.Application.isLoadingSave)
+                return;
+
+            NextTick(() =>
+            {
+                if (vehicle.creatorEntity == null)
+                    return;
+
+                var vehicleConfig = GetVehicleConfig(vehicle);
+                if (vehicleConfig == null)
+                    return;
+
+                AdjustFuel(vehicle, vehicleConfig.FuelAmount);
+                MaybeSetOwner(vehicle);
+            });
+        }
+
         private void MaybeSetOwner(BaseVehicle vehicle)
         {
             var basePlayer = vehicle.creatorEntity as BasePlayer;
-            if (basePlayer == null) return;
+            if (basePlayer == null)
+                return;
 
             SetOwnerIfPermission(vehicle, basePlayer);
         }
@@ -233,48 +338,154 @@ namespace Oxide.Plugins
             return null;
         }
 
-        private bool TryConversationAction(NPCTalking npcTalking, BasePlayer player, string action)
+        private void SendUpdatedInventoryWithFakeScrap(BasePlayer player, int amountDiff)
         {
-            var resultAction = npcTalking.conversationResultActions.FirstOrDefault(result => result.action == action);
-            if (resultAction == null)
-                return false;
-
-            // This re-implements game logic to kick out other conversing players when a vehicle spawns
-            npcTalking.CleanupConversingPlayers();
-            foreach (BasePlayer conversingPlayer in npcTalking.conversingPlayers)
+            using (var containerUpdate = Facepunch.Pool.Get<ProtoBuf.UpdateItemContainer>())
             {
-                if (conversingPlayer != player && conversingPlayer != null)
-                {
-                    int speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex("startbusy");
-                    npcTalking.ForceSpeechNode(conversingPlayer, speechNodeIndex);
-                }
+                containerUpdate.type = (int)PlayerInventory.Type.Main;
+                containerUpdate.container = Facepunch.Pool.Get<List<ProtoBuf.ItemContainer>>();
+
+                var containerInfo = player.inventory.containerMain.Save();
+                var itemSlot = AddFakeScrapToContainerUpdate(containerInfo, amountDiff);
+
+                containerUpdate.container.Capacity = itemSlot + 1;
+                containerUpdate.container.Add(containerInfo);
+                player.ClientRPCPlayer(null, player, "UpdatedItemContainer", containerUpdate);
             }
-
-            // Spawn the vehicle
-            npcTalking.lastActionPlayer = player;
-            npcTalking.BroadcastEntityMessage(resultAction.broadcastMessage, resultAction.broadcastRange);
-            npcTalking.lastActionPlayer = null;
-
-            return true;
         }
 
-        private void AdvanceOrEndConveration(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, string targetSpeechName)
+        private int AddFakeScrapToContainerUpdate(ProtoBuf.ItemContainer containerInfo, int scrapAmount)
         {
-            var speechNodeIndex = conversationData.GetSpeechNodeIndex(targetSpeechName);
-            if (speechNodeIndex == -1)
+            // Always use a separate item so it can be placed out of view.
+            var itemInfo = _scrapItem.Save();
+            itemInfo.amount = scrapAmount;
+            itemInfo.slot = GetNextAvailableSlot(containerInfo);
+            containerInfo.contents.Add(itemInfo);
+            return itemInfo.slot;
+        }
+
+        private bool TryPurchaseFree(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+        {
+            foreach (var responseConfig in _freeVehicleConfigs)
             {
-                npcTalking.ForceEndConversation(player);
+                if (responseNode.resultingSpeechNode != responseConfig.matchSpeechNode)
+                    continue;
+
+                if (!HasPermissionAny(player.UserIDString, Permission_Free_All, responseConfig.freePermission))
+                    return false;
+
+                if (!TryConversationAction(npcTalking, player, responseConfig.responseAction))
+                    return false;
+
+                AdvanceOrEndConveration(npcTalking, player, conversationData, responseConfig.successSpeechNode);
+                return true;
             }
-            else
+            return false;
+        }
+
+        private void MaybeAddPlayerScrap(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+        {
+            foreach (var priceConfig in _vehiclePriceConfigs)
             {
-                var speechNode = conversationData.speeches[speechNodeIndex];
-                npcTalking.ForceSpeechNode(player, speechNodeIndex);
+                if (priceConfig.responseAction != responseNode.actionString)
+                    continue;
+
+                var vanillaPrice = GetRequiredScrapAmount(responseNode);
+                if (vanillaPrice == -1)
+                {
+                    LogError($"Something went wrong. The '{responseNode.actionString}' reponse node does not require scrap. The price was unable to be adjusted. Please contact the plugin maintainer.");
+                    return;
+                }
+
+                var customPrice = priceConfig.GetPrice();
+                if (customPrice < 0 || customPrice == vanillaPrice)
+                {
+                    // Use vanilla price, so nothing to do.
+                    return;
+                }
+
+                var playerAmount = player.inventory.GetAmount(ScrapItemId);
+                if (playerAmount < customPrice)
+                    return;
+
+                var extraScrap = vanillaPrice - customPrice;
+
+                player.inventory.containerMain.AddItem(ItemManager.itemDictionary[ScrapItemId], extraScrap);
+
+                // Check conditions just in case, to make sure we don't give free scrap.
+                if (!responseNode.PassesConditions(player, npcTalking))
+                    player.inventory.containerMain.AddItem(ItemManager.itemDictionary[ScrapItemId], -extraScrap);
+
+                return;
+            }
+        }
+
+        private void MaybeFakePlayerScrap(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+        {
+            var speechNode = FindSpeechNodeByName(conversationData, responseNode.resultingSpeechNode);
+            if (speechNode == null)
+                return;
+
+            foreach (var response in speechNode.responses)
+            {
+                foreach (var priceConfig in _vehiclePriceConfigs)
+                {
+                    if (priceConfig.responseAction != response.actionString)
+                        continue;
+
+                    var vanillaPrice = GetRequiredScrapAmount(response);
+                    if (vanillaPrice == -1)
+                        continue;
+
+                    var customPrice = priceConfig.GetPrice();
+                    if (customPrice < 0 || customPrice == vanillaPrice)
+                    {
+                        // Use vanilla price, so nothing to do.
+                        return;
+                    }
+
+                    var playerAmount = player.inventory.GetAmount(ScrapItemId);
+                    var playerHasEnough = playerAmount >= customPrice;
+                    var willDisplayOption = playerAmount >= vanillaPrice;
+
+                    if (willDisplayOption == playerHasEnough)
+                        return;
+
+                    SendUpdatedInventoryWithFakeScrap(player, vanillaPrice - customPrice);
+
+                    // This delay needs to be long enough for the text to print out, which could vary by language.
+                    timer.Once(2f, () =>
+                    {
+                        if (player != null)
+                            RefreshInventory(player);
+                    });
+                    return;
+                }
             }
         }
 
         #endregion
 
         #region Configuration
+
+        private VehicleConfig GetVehicleConfig(BaseVehicle vehicle)
+        {
+            // Must go before MiniCopter
+            if (vehicle is ScrapTransportHelicopter)
+                return _pluginConfig.Vehicles.ScrapTransport;
+
+            if (vehicle is MiniCopter)
+                return _pluginConfig.Vehicles.Minicopter;
+
+            // Must go before MotorRowboat
+            if (vehicle is RHIB)
+                return _pluginConfig.Vehicles.RHIB;
+
+            if (vehicle is MotorRowboat)
+                return _pluginConfig.Vehicles.Rowboat;
+
+            return null;
+        }
 
         internal class Configuration : SerializableConfiguration
         {
@@ -313,6 +524,9 @@ namespace Oxide.Plugins
         {
             [JsonProperty("FuelAmount")]
             public int FuelAmount = 100;
+
+            [JsonProperty("ScrapCost")]
+            public int ScrapCost = -1;
         }
 
         private Configuration GetDefaultConfig() => new Configuration();
@@ -390,20 +604,20 @@ namespace Oxide.Plugins
             return changed;
         }
 
-        protected override void LoadDefaultConfig() => pluginConfig = GetDefaultConfig();
+        protected override void LoadDefaultConfig() => _pluginConfig = GetDefaultConfig();
 
         protected override void LoadConfig()
         {
             base.LoadConfig();
             try
             {
-                pluginConfig = Config.ReadObject<Configuration>();
-                if (pluginConfig == null)
+                _pluginConfig = Config.ReadObject<Configuration>();
+                if (_pluginConfig == null)
                 {
                     throw new JsonException();
                 }
 
-                if (MaybeUpdateConfig(pluginConfig))
+                if (MaybeUpdateConfig(_pluginConfig))
                 {
                     LogWarning("Configuration appears to be outdated; updating and saving");
                     SaveConfig();
@@ -419,7 +633,7 @@ namespace Oxide.Plugins
         protected override void SaveConfig()
         {
             Log($"Configuration changes saved to {Name}.json");
-            Config.WriteObject(pluginConfig, true);
+            Config.WriteObject(_pluginConfig, true);
         }
 
         #endregion
