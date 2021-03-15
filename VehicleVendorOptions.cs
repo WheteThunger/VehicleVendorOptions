@@ -4,6 +4,7 @@ using Newtonsoft.Json.Serialization;
 using Oxide.Core;
 using Oxide.Core.Plugins;
 using Oxide.Core.Libraries.Covalence;
+using Oxide.Game.Rust.Cui;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -46,15 +47,15 @@ namespace Oxide.Plugins
 
         private readonly List<BaseResponseIntercepter> _responseIntercepters = new List<BaseResponseIntercepter>()
         {
-            new PaymentIntercepter("buytransport", () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
-            new PaymentIntercepter("buyminicopter", () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
-            new PaymentIntercepter("buyrhib", () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
-            new PaymentIntercepter("buyboat", () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
+            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
+            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
+            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
+            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
 
-            new PayPromptIntercepter("buytransport", () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
-            new PayPromptIntercepter("buyminicopter", () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
-            new PayPromptIntercepter("buyrhib", () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
-            new PayPromptIntercepter("buyboat", () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
+            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
+            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
+            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
+            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
         };
 
         #endregion
@@ -90,6 +91,7 @@ namespace Oxide.Plugins
 
         private void Unload()
         {
+            CostLabelUI.DestroyAll();
             _scrapItem?.Remove();
             _pluginInstance = null;
             _pluginConfig = null;
@@ -113,17 +115,16 @@ namespace Oxide.Plugins
         private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player) =>
             SetOwnerIfPermission(horse, player);
 
-        private object OnNpcConversationRespond(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+        private object OnNpcConversationRespond(VehicleVendor vendor, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
         {
-            if (!(npcTalking is VehicleVendor))
-                return null;
+            CostLabelUI.Destroy(player);
 
             foreach (var intercepter in _responseIntercepters)
             {
-                var forceNextSpeechNode = intercepter.Intercept(npcTalking, player, conversationData, responseNode);
+                var forceNextSpeechNode = intercepter.Intercept(vendor, player, conversationData, responseNode);
                 if (forceNextSpeechNode != string.Empty)
                 {
-                    ForceSpeechNode(npcTalking, player, forceNextSpeechNode);
+                    ConversationUtils.ForceSpeechNode(vendor, player, forceNextSpeechNode);
                     return false;
                 }
             }
@@ -131,10 +132,9 @@ namespace Oxide.Plugins
             return null;
         }
 
-        private static void ForceSpeechNode(NPCTalking npcTalking, BasePlayer player, string speechNodeName)
+        private void OnNpcConversationEnded(VehicleVendor vendor, BasePlayer player)
         {
-            int speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex(speechNodeName);
-            npcTalking.ForceSpeechNode(player, speechNodeIndex);
+            CostLabelUI.Destroy(player);
         }
 
         #endregion
@@ -288,6 +288,14 @@ namespace Oxide.Plugins
                 public const string Goodbye = "goodbye";
             }
 
+            public static class ResponseActions
+            {
+                public const string BuyScrapHeli = "buytransport";
+                public const string BuyMinicopter = "buyminicopter";
+                public const string BuyRHIB = "buyrhib";
+                public const string BuyRowboat = "buyboat";
+            }
+
             public static bool ResponseHasScrapPrice(ResponseNode responseNode, out int price)
             {
                 foreach (var condition in responseNode.conditions)
@@ -324,6 +332,12 @@ namespace Oxide.Plugins
                 return false;
             }
 
+            public static void ForceSpeechNode(NPCTalking npcTalking, BasePlayer player, string speechNodeName)
+            {
+                int speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex(speechNodeName);
+                npcTalking.ForceSpeechNode(player, speechNodeIndex);
+            }
+
             private static SpeechNode FindSpeechNodeByName(ConversationData conversationData, string speechNodeName)
             {
                 foreach (var speechNode in conversationData.speeches)
@@ -332,6 +346,65 @@ namespace Oxide.Plugins
                         return speechNode;
                 }
                 return null;
+            }
+        }
+
+        #endregion
+
+        #region UI
+
+        private static class CostLabelUI
+        {
+            private const string Name = "VehicleVendorOptions";
+
+            public static void Destroy(BasePlayer player)
+            {
+                CuiHelper.DestroyUi(player, Name);
+            }
+
+            public static void DestroyAll()
+            {
+                foreach (var player in BasePlayer.activePlayerList)
+                    Destroy(player);
+            }
+
+            public static void Create(BasePlayer player, PriceConfig priceConfig)
+            {
+                var itemPrice = priceConfig.Amount == 0
+                    ? _pluginInstance.GetMessage(player, "UI.Price.Free")
+                    : priceConfig.PaymentProvider is EconomicsPaymentProvider
+                    ? _pluginInstance.GetMessage(player, "UI.Currency.Economics", priceConfig.Amount)
+                    : priceConfig.PaymentProvider is ServerRewardsPaymentProvider
+                    ? _pluginInstance.GetMessage(player, "UI.Currency.ServerRewards", priceConfig.Amount)
+                    : $"{priceConfig.Amount} {priceConfig.ItemDef.displayName.translated}";
+
+                var cuiElements = new CuiElementContainer
+                {
+                    {
+                        new CuiLabel
+                        {
+                            RectTransform =
+                            {
+                                AnchorMin = "1 0",
+                                AnchorMax = "1 0",
+                                OffsetMin = "-490 348",
+                                OffsetMax = "-214 368"
+                            },
+                            Text =
+                            {
+                                Text = _pluginInstance.GetMessage(player, "UI.ActualPrice", itemPrice),
+                                FontSize = 11,
+                                Color = "1 1 1 1",
+                                Font = "robotocondensed-regular.ttf",
+                                Align = UnityEngine.TextAnchor.MiddleLeft
+                            }
+                        },
+                        "Overlay",
+                        Name
+                    }
+                };
+
+                CuiHelper.AddUi(player, cuiElements);
             }
         }
 
@@ -368,7 +441,9 @@ namespace Oxide.Plugins
                 if (!ConversationUtils.PrecedesPaymentOption(conversationData, responseNode, _matchResponseAction, out vanillaPrice))
                     return string.Empty;
 
-                var priceConfig = _getVehicleConfig().GetPriceForPlayer(player.IPlayer, _freePermission);
+                var vehicleConfig = _getVehicleConfig();
+
+                var priceConfig = vehicleConfig.GetPriceForPlayer(player.IPlayer, _freePermission);
                 if (priceConfig == null)
                 {
                     // Use vanilla price.
@@ -378,6 +453,8 @@ namespace Oxide.Plugins
                 var neededScrap = PlayerInventoryUtils.GetPlayerNeededScrap(player, vanillaPrice);
                 var canAffordVanillaPrice = neededScrap <= 0;
                 var canAffordCustomPrice = priceConfig.CanPlayerAfford(player);
+
+                CostLabelUI.Create(player, priceConfig);
 
                 if (canAffordCustomPrice == canAffordVanillaPrice)
                     return string.Empty;
@@ -429,10 +506,7 @@ namespace Oxide.Plugins
                 var canAffordCustomPrice = priceConfig.CanPlayerAfford(player);
 
                 if (!canAffordCustomPrice)
-                {
-                    // Redirect to the speech node where the user is informed they can't afford it.
                     return ConversationUtils.SpeechNodes.Goodbye;
-                }
 
                 // Add scrap so the vanilla checks will pass. Add full amount for simplicity.
                 player.inventory.containerMain.AddItem(ItemManager.itemDictionary[ScrapItemId], vanillaPrice);
@@ -662,6 +736,9 @@ namespace Oxide.Plugins
             [JsonIgnore]
             public bool IsValid => PaymentProvider?.IsAvailable ?? false && Permission != string.Empty;
 
+            [JsonIgnore]
+            public ItemDefinition ItemDef;
+
             public void InitAndValidate(string vehicleType)
             {
                 Permission = GeneratePermission(vehicleType);
@@ -676,14 +753,13 @@ namespace Oxide.Plugins
                 if (UseServerRewards)
                     return ServerRewardsPaymentProvider.Instance;
 
-                ItemDefinition itemDefinition;
-                if (!ItemManager.itemDictionaryByName.TryGetValue(ItemShortName, out itemDefinition))
+                if (!ItemManager.itemDictionaryByName.TryGetValue(ItemShortName, out ItemDef))
                 {
                     _pluginInstance.LogError($"Price config contains an invalid item short name: '{ItemShortName}'.");
                     return null;
                 }
 
-                return new ItemsPaymentProvider(itemDefinition.itemid);
+                return new ItemsPaymentProvider(ItemDef.itemid);
             }
 
             private string GeneratePermission(string vehicleType)
@@ -830,6 +906,33 @@ namespace Oxide.Plugins
         {
             Log($"Configuration changes saved to {Name}.json");
             Config.WriteObject(_pluginConfig, true);
+        }
+
+        #endregion
+
+        #region Localization
+
+        private string GetMessage(BasePlayer player, string messageName, params object[] args) =>
+            GetMessage(player.IPlayer, messageName, args);
+
+        private string GetMessage(IPlayer player, string messageName, params object[] args) =>
+            GetMessage(player.Id, messageName, args);
+
+        private string GetMessage(string playerId, string messageName, params object[] args)
+        {
+            var message = lang.GetMessage(messageName, this, playerId);
+            return args.Length > 0 ? string.Format(message, args) : message;
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["UI.ActualPrice"] = "Actual price: {0}",
+                ["UI.Price.Free"] = "Free",
+                ["UI.Currency.Economics"] = "{0:C}",
+                ["UI.Currency.ServerRewards"] = "{0} reward points",
+            }, this, "en");
         }
 
         #endregion
