@@ -128,3 +128,14 @@ For reference, here are the vanilla scrap prices for vehicles.
 - Minicopter: `750`
 - RHIB: `300`
 - Rowboat: `125`
+
+## Localization
+
+```json
+{
+  "UI.ActualPrice": "Actual price: {0}",
+  "UI.Price.Free": "Free",
+  "UI.Currency.Economics": "{0:C}",
+  "UI.Currency.ServerRewards": "{0} reward points"
+}
+```
