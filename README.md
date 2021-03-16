@@ -111,17 +111,19 @@ Default configuration:
 }
 ```
 
-Each vehicle the following options.
+Each vehicle has the following options.
 
 - `FuelAmount` -- The amount of low grade fuel to put in the vehicle's fuel tank when it spawns.
   - Set to `-1` for the max stack size of low grade fuel on your server.
-- `PricesRequiringPermission` -- List of prices that will override the vanilla price for players with the corresponding permission (see permissions section).
+- `PricesRequiringPermission` -- List of prices that can be granted to players with permission. Each price config generates a permission of the format `vehiclevendoroptions.price.<vehicle>.<item>.<amount>`. Granting one to a player overrides the price they will be charged. They will also see UI text on the screen indicating what the real price is, since the vanilla UI cannot be changed.
   - `ItemShortName` (default: `"scrap"`) -- The short name of the item to charge the player.
   - `Amount` -- The amount of items, Economics currency or Server Rewards points required to purchase the vehicle.
   - `UseEconomics` (`true` or `false`) -- While `true`, the `Amount` represents the price in [Economics](https://umod.org/plugins/economics) currency.
     - Generated permission format: `vehiclevendoroptions.price.<vehicle>.economics.<amount>`
+    - If the Economics plugin is not loaded when the player talks to the vendor, another price config will be selected for the user if they have permission to any, or else the vanilla price will be used.
   - `UseServerRewards` (`true` or `false`) -- While `true`, the `Amount` represents the price in [Server Rewards](https://umod.org/plugins/server-rewards) points.
     - Generated permission format: `vehiclevendoroptions.price.<vehicle>.serverrewards.<amount>`
+    - If the Server Rewards plugin is not loaded when the player talks to the vendor, another price config will be selected for the user if they have permission to any, or else the vanilla price will be used.
 
 For reference, here are the vanilla scrap prices for vehicles.
 - ScrapTransport: `1250`
