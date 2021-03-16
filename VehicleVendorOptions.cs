@@ -385,16 +385,15 @@ namespace Oxide.Plugins
                         {
                             RectTransform =
                             {
-                                AnchorMin = "1 0",
-                                AnchorMax = "1 0",
-                                OffsetMin = "-490 348",
-                                OffsetMax = "-214 368"
+                                AnchorMin = "0.5 0.5",
+                                AnchorMax = "0.5 0.5",
+                                OffsetMin = "152 -10",
+                                OffsetMax = "428 10"
                             },
                             Text =
                             {
                                 Text = _pluginInstance.GetMessage(player, "UI.ActualPrice", itemPrice),
                                 FontSize = 11,
-                                Color = "1 1 1 1",
                                 Font = "robotocondensed-regular.ttf",
                                 Align = UnityEngine.TextAnchor.MiddleLeft
                             }
