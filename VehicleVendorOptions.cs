@@ -443,11 +443,8 @@ namespace Oxide.Plugins
                 var vehicleConfig = _getVehicleConfig();
 
                 var priceConfig = vehicleConfig.GetPriceForPlayer(player.IPlayer, _freePermission);
-                if (priceConfig == null)
-                {
-                    // Use vanilla price.
+                if (priceConfig == null || priceConfig.MatchesVanillaPrice(vanillaPrice))
                     return string.Empty;
-                }
 
                 var neededScrap = PlayerInventoryUtils.GetPlayerNeededScrap(player, vanillaPrice);
                 var canAffordVanillaPrice = neededScrap <= 0;
@@ -494,11 +491,8 @@ namespace Oxide.Plugins
                     return string.Empty;
 
                 var priceConfig = _getVehicleConfig().GetPriceForPlayer(player.IPlayer, _freePermission);
-                if (priceConfig == null)
-                {
-                    // Use vanilla price.
+                if (priceConfig == null || priceConfig.MatchesVanillaPrice(vanillaPrice))
                     return string.Empty;
-                }
 
                 var neededScrap = PlayerInventoryUtils.GetPlayerNeededScrap(player, vanillaPrice);
                 var canAffordVanillaPrice = neededScrap <= 0;
@@ -737,6 +731,11 @@ namespace Oxide.Plugins
 
             [JsonIgnore]
             public ItemDefinition ItemDef;
+
+            public bool MatchesVanillaPrice(int vanillaPrice) =>
+                PaymentProvider is ItemsPaymentProvider
+                && ItemShortName == "scrap"
+                && Amount == vanillaPrice;
 
             public void InitAndValidate(string vehicleType)
             {
