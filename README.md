@@ -133,11 +133,14 @@ For reference, here are the vanilla scrap prices for vehicles.
 
 ## Localization
 
+If you are using custom prices, you can translate the displayed item name by using the localization key `"Item.<shortname>"`, such as `"Item.scrap": "Scrap"`. These will be automatically generated for English based on the item short names in the `PricesRequiringPermission` configs.
+
 ```json
 {
   "UI.ActualPrice": "Actual price: {0}",
   "UI.Price.Free": "Free",
   "UI.Currency.Economics": "{0:C}",
-  "UI.Currency.ServerRewards": "{0} reward points"
+  "UI.Currency.ServerRewards": "{0} reward points",
+  "Item.scrap": "Scrap"
 }
 ```

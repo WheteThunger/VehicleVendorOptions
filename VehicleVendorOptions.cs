@@ -376,7 +376,7 @@ namespace Oxide.Plugins
                     ? _pluginInstance.GetMessage(player, "UI.Currency.Economics", priceConfig.Amount)
                     : priceConfig.PaymentProvider is ServerRewardsPaymentProvider
                     ? _pluginInstance.GetMessage(player, "UI.Currency.ServerRewards", priceConfig.Amount)
-                    : $"{priceConfig.Amount} {priceConfig.ItemDef.displayName.translated}";
+                    : $"{priceConfig.Amount} {_pluginInstance.GetMessage(player, _pluginInstance.GetItemNameLocalizationKey(priceConfig.ItemShortName))}";
 
                 var cuiElements = new CuiElementContainer
                 {
@@ -660,7 +660,6 @@ namespace Oxide.Plugins
 
             public void RegisterCustomPricePermissions()
             {
-                ItemManager.Initialize();
                 ScrapTransport.InitAndValidate("scraptransport");
                 Minicopter.InitAndValidate("minicopter");
                 RHIB.InitAndValidate("rhib");
@@ -729,8 +728,22 @@ namespace Oxide.Plugins
             [JsonIgnore]
             public bool IsValid => PaymentProvider?.IsAvailable ?? false && Permission != string.Empty;
 
+            private ItemDefinition _itemDefinition;
             [JsonIgnore]
-            public ItemDefinition ItemDef;
+            public ItemDefinition ItemDef
+            {
+                get
+                {
+                    if (_itemDefinition != null)
+                        return _itemDefinition;
+
+                    // This could be called during server boot, in which case the ItemManager is not yet initialized.
+                    // It's generally safe and performant to call ItemManager.Initialize() any time, and it will only initialize once.
+                    ItemManager.Initialize();
+                    ItemManager.itemDictionaryByName.TryGetValue(ItemShortName, out _itemDefinition);
+                    return _itemDefinition;
+                }
+            }
 
             public bool MatchesVanillaPrice(int vanillaPrice) =>
                 PaymentProvider is ItemsPaymentProvider
@@ -751,7 +764,7 @@ namespace Oxide.Plugins
                 if (UseServerRewards)
                     return ServerRewardsPaymentProvider.Instance;
 
-                if (!ItemManager.itemDictionaryByName.TryGetValue(ItemShortName, out ItemDef))
+                if (ItemDef == null)
                 {
                     _pluginInstance.LogError($"Price config contains an invalid item short name: '{ItemShortName}'.");
                     return null;
@@ -922,15 +935,36 @@ namespace Oxide.Plugins
             return args.Length > 0 ? string.Format(message, args) : message;
         }
 
+        private string GetItemNameLocalizationKey(string itemShortName) => $"Item.{itemShortName}";
+
+        private void AddEnglishItemNamesForPriceConfigs(Dictionary<string, string> messages, PriceConfig[] priceConfigs)
+        {
+            foreach (var priceConfig in priceConfigs)
+            {
+                if (string.IsNullOrEmpty(priceConfig.ItemShortName))
+                    continue;
+
+                var localizationKey = GetItemNameLocalizationKey(priceConfig.ItemShortName);
+                messages[localizationKey] = priceConfig.ItemDef.displayName.english;
+            }
+        }
+
         protected override void LoadDefaultMessages()
         {
-            lang.RegisterMessages(new Dictionary<string, string>
+            var messages = new Dictionary<string, string>
             {
                 ["UI.ActualPrice"] = "Actual price: {0}",
                 ["UI.Price.Free"] = "Free",
                 ["UI.Currency.Economics"] = "{0:C}",
                 ["UI.Currency.ServerRewards"] = "{0} reward points",
-            }, this, "en");
+            };
+
+            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.ScrapTransport.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.Minicopter.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.RHIB.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.Rowboat.PricesRequiringPermission);
+
+            lang.RegisterMessages(messages, this, "en");
         }
 
         #endregion
