@@ -12,7 +12,7 @@ using static ConversationData;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.3.0")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.4.0")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -23,6 +23,12 @@ namespace Oxide.Plugins
 
         private static VehicleVendorOptions _pluginInstance;
         private static Configuration _pluginConfig;
+
+        private const string Permission_Allow_All = "vehiclevendoroptions.allow.all";
+        private const string Permission_Allow_ScrapHeli = "vehiclevendoroptions.allow.scraptransport";
+        private const string Permission_Allow_MiniCopter = "vehiclevendoroptions.allow.minicopter";
+        private const string Permission_Allow_RHIB = "vehiclevendoroptions.allow.rhib";
+        private const string Permission_Allow_Rowboat = "vehiclevendoroptions.allow.rowboat";
 
         private const string Permission_Ownership_All = "vehiclevendoroptions.ownership.allvehicles";
         private const string Permission_Ownership_ScrapHeli = "vehiclevendoroptions.ownership.scraptransport";
@@ -47,6 +53,11 @@ namespace Oxide.Plugins
 
         private readonly List<BaseResponseIntercepter> _responseIntercepters = new List<BaseResponseIntercepter>()
         {
+            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Allow_ScrapHeli),
+            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Allow_MiniCopter),
+            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Allow_RHIB),
+            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Allow_Rowboat),
+
             new PaymentIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
             new PaymentIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
             new PaymentIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
@@ -66,6 +77,12 @@ namespace Oxide.Plugins
         {
             _pluginInstance = this;
             _pluginConfig = Config.ReadObject<Configuration>();
+
+            permission.RegisterPermission(Permission_Allow_All, this);
+            permission.RegisterPermission(Permission_Allow_ScrapHeli, this);
+            permission.RegisterPermission(Permission_Allow_MiniCopter, this);
+            permission.RegisterPermission(Permission_Allow_RHIB, this);
+            permission.RegisterPermission(Permission_Allow_Rowboat, this);
 
             permission.RegisterPermission(Permission_Ownership_All, this);
             permission.RegisterPermission(Permission_Ownership_MiniCopter, this);
@@ -440,9 +457,7 @@ namespace Oxide.Plugins
                 if (!ConversationUtils.PrecedesPaymentOption(conversationData, responseNode, _matchResponseAction, out vanillaPrice))
                     return string.Empty;
 
-                var vehicleConfig = _getVehicleConfig();
-
-                var priceConfig = vehicleConfig.GetPriceForPlayer(player.IPlayer, _freePermission);
+                var priceConfig = _getVehicleConfig().GetPriceForPlayer(player.IPlayer, _freePermission);
                 if (priceConfig == null || priceConfig.MatchesVanillaPrice(vanillaPrice))
                     return string.Empty;
 
@@ -478,7 +493,6 @@ namespace Oxide.Plugins
             public PaymentIntercepter(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string freePermission) : base(getVehicleConfig, freePermission)
             {
                 _matchResponseAction = matchResponseAction;
-                _freePermission = freePermission;
             }
 
             public override string Intercept(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
@@ -515,6 +529,34 @@ namespace Oxide.Plugins
                 priceConfig.TryChargePlayer(player, vanillaPrice);
 
                 return string.Empty;
+            }
+        }
+
+        private class PermissionIntercepter : BaseResponseIntercepter
+        {
+            private string _matchResponseAction;
+            private string _allowPermission;
+
+            public PermissionIntercepter(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string allowPermission) : base(getVehicleConfig, null)
+            {
+                _matchResponseAction = matchResponseAction;
+                _allowPermission = allowPermission;
+            }
+
+            public override string Intercept(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+            {
+                int vanillaPrice;
+                if (!ConversationUtils.PrecedesPaymentOption(conversationData, responseNode, _matchResponseAction, out vanillaPrice))
+                    return string.Empty;
+
+                if (!_getVehicleConfig().RequiresPermission)
+                    return string.Empty;
+
+                if (_pluginInstance.HasPermissionAny(player.UserIDString, Permission_Allow_All, _allowPermission))
+                    return string.Empty;
+
+                _pluginInstance.ChatMessage(player, "Error.Vehicle.NoPermission");
+                return ConversationUtils.SpeechNodes.Goodbye;
             }
         }
 
@@ -670,6 +712,9 @@ namespace Oxide.Plugins
         private class VehicleConfig
         {
             private static PriceConfig FreePriceConfig = new PriceConfig() { Amount = 0 };
+
+            [JsonProperty("RequiresPermission")]
+            public bool RequiresPermission = false;
 
             [JsonProperty("FuelAmount")]
             public int FuelAmount = 100;
@@ -923,6 +968,9 @@ namespace Oxide.Plugins
 
         #region Localization
 
+        private void ChatMessage(BasePlayer player, string messageName, params object[] args) =>
+            player.ChatMessage(string.Format(GetMessage(player.UserIDString, messageName), args));
+
         private string GetMessage(BasePlayer player, string messageName, params object[] args) =>
             GetMessage(player.IPlayer, messageName, args);
 
@@ -953,6 +1001,7 @@ namespace Oxide.Plugins
         {
             var messages = new Dictionary<string, string>
             {
+                ["Error.Vehicle.NoPermission"] = "You don't have permission to buy that vehicle.",
                 ["UI.ActualPrice"] = "Actual price: {0}",
                 ["UI.Price.Free"] = "Free",
                 ["UI.Currency.Economics"] = "{0:C}",

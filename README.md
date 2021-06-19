@@ -5,6 +5,7 @@ This plugin allows configuring vehicles spawned by NPC vendors.
 - Allows configuring initial fuel amount for each vehicle type, overriding the vanilla default (50 for boats, and 20% of max stack size for helicopters)
 - Allows assigning ownership when players purchase vehicles, so other plugins can enable features based on their permissions
 - Allows adjusting vehicle prices for players with permission
+- Allows restricting vehicles to permission
 
 ## Permissions
 
@@ -49,6 +50,16 @@ Alternatively, you can grant permission by vehicle type:
 
 Note: Having permission to free horses still requires a saddle to be in your inventory for the claim option to appear client-side, but claiming the horse will not consume the saddle.
 
+### Restrict vehicles
+
+To restrict vehicles to permission, set `RequiresPermission` to `true` in the plugin configuration under each vehicle type that you want to restrict. When a vehicle is restricted, players will only be allowed to purchase it if they have the corresponding permissions below.
+
+- `vehiclevendoroptions.allow.all` (all vehicles)
+- `vehiclevendoroptions.allow.scraptransport`
+- `vehiclevendoroptions.allow.minicopter`
+- `vehiclevendoroptions.allow.rhib`
+- `vehiclevendoroptions.allow.rowboat`
+
 ## Configuration
 
 Default configuration:
@@ -56,6 +67,7 @@ Default configuration:
 {
   "Vehicles": {
     "ScrapTransport": {
+      "RequiresPermission": false,
       "FuelAmount": 100,
       "PricesRequiringPermission": [
         {
@@ -69,6 +81,7 @@ Default configuration:
       ]
     },
     "Minicopter": {
+      "RequiresPermission": false,
       "FuelAmount": 100,
       "PricesRequiringPermission": [
         {
@@ -82,6 +95,7 @@ Default configuration:
       ]
     },
     "RHIB": {
+      "RequiresPermission": false,
       "FuelAmount": 50,
       "PricesRequiringPermission": [
         {
@@ -95,6 +109,7 @@ Default configuration:
       ]
     },
     "Rowboat": {
+      "RequiresPermission": false,
       "FuelAmount": 50,
       "PricesRequiringPermission": [
         {
@@ -113,6 +128,7 @@ Default configuration:
 
 Each vehicle has the following options.
 
+- `RequiresPermission` (`true` or `false`) -- While `true`, players must have the `vehiclevendoroptions.allow.<vehicle>` permission to purchase vehicles of this type. While `false`, the vehicle type is open to all players.
 - `FuelAmount` -- The amount of low grade fuel to put in the vehicle's fuel tank when it spawns.
   - Set to `-1` for the max stack size of low grade fuel on your server.
 - `PricesRequiringPermission` -- List of prices that can be granted to players with permission. Each price config generates a permission of the format `vehiclevendoroptions.price.<vehicle>.<item>.<amount>`. Granting one to a player overrides the price they will be charged. They will also see UI text on the screen indicating what the real price is, since the vanilla UI cannot be changed.
@@ -137,6 +153,7 @@ If you are using custom prices, you can translate the displayed item name by usi
 
 ```json
 {
+  "Error.Vehicle.NoPermission": "You don't have permission to buy that vehicle.",
   "UI.ActualPrice": "Actual price: {0}",
   "UI.Price.Free": "Free",
   "UI.Currency.Economics": "{0:C}",
