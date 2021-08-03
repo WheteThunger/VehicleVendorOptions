@@ -19,6 +19,8 @@ Alternatively, you can grant permissions by vehicle type:
 - `vehiclevendoroptions.ownership.minicopter`
 - `vehiclevendoroptions.ownership.rhib`
 - `vehiclevendoroptions.ownership.rowboat`
+- `vehiclevendoroptions.ownership.duosub`
+- `vehiclevendoroptions.ownership.solosub`
 - `vehiclevendoroptions.ownership.ridablehorse`
 
 ### Vehicle prices
@@ -33,6 +35,10 @@ The following permissions come with this plugin's **default configuration**. Gra
 - `vehiclevendoroptions.price.rhib.scrap.100`
 - `vehiclevendoroptions.price.rowboat.scrap.80`
 - `vehiclevendoroptions.price.rowboat.scrap.40`
+- `vehiclevendoroptions.price.duosub.scrap.200`
+- `vehiclevendoroptions.price.duosub.scrap.100`
+- `vehiclevendoroptions.price.solosub.scrap.125`
+- `vehiclevendoroptions.price.solosub.scrap.50`
 
 You can add more custom prices in the plugin configuration under each vehicle type (`PricesRequiringPermission`), and the plugin will automatically generate a permission of the format `vehiclevendoroptions.price.<vehicle>.<item>.<amount>`. If a player has permission to multiple prices for a given vehicle type, only the last will apply, based on the order in the config.
 
@@ -46,6 +52,8 @@ Alternatively, you can grant permission by vehicle type:
 - `vehiclevendoroptions.free.minicopter`
 - `vehiclevendoroptions.free.rhib`
 - `vehiclevendoroptions.free.rowboat`
+- `vehiclevendoroptions.free.duosub`
+- `vehiclevendoroptions.free.solosub`
 - `vehiclevendoroptions.free.ridablehorse`
 
 Note: Having permission to free horses still requires a saddle to be in your inventory for the claim option to appear client-side, but claiming the horse will not consume the saddle.
@@ -59,6 +67,8 @@ To restrict vehicles to permission, set `RequiresPermission` to `true` in the pl
 - `vehiclevendoroptions.allow.minicopter`
 - `vehiclevendoroptions.allow.rhib`
 - `vehiclevendoroptions.allow.rowboat`
+- `vehiclevendoroptions.allow.duosub`
+- `vehiclevendoroptions.allow.solosub`
 
 ## Configuration
 
@@ -121,6 +131,34 @@ Default configuration:
           "Amount": 40
         }
       ]
+    },
+    "DuoSub": {
+      "RequiresPermission": false,
+      "FuelAmount": 50,
+      "PricesRequiringPermission": [
+        {
+          "ItemShortName": "scrap",
+          "Amount": 200
+        },
+        {
+          "ItemShortName": "scrap",
+          "Amount": 100
+        }
+      ]
+    },
+    "SoloSub": {
+      "RequiresPermission": false,
+      "FuelAmount": 50,
+      "PricesRequiringPermission": [
+        {
+          "ItemShortName": "scrap",
+          "Amount": 125
+        },
+        {
+          "ItemShortName": "scrap",
+          "Amount": 50
+        }
+      ]
     }
   }
 }
@@ -146,6 +184,8 @@ For reference, here are the vanilla scrap prices for vehicles.
 - Minicopter: `750`
 - RHIB: `300`
 - Rowboat: `125`
+- Duo sub: `300`
+- Solo sub: `200`
 
 ## Localization
 

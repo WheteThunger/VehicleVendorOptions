@@ -12,7 +12,7 @@ using static ConversationData;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.4.0")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.5.0")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -24,17 +24,28 @@ namespace Oxide.Plugins
         private static VehicleVendorOptions _pluginInstance;
         private static Configuration _pluginConfig;
 
+        private const string ShortName_ScrapHeli = "scraptransport";
+        private const string ShortName_Minicopter = "minicopter";
+        private const string ShortName_RHIB = "rhib";
+        private const string ShortName_Rowboat = "rowboat";
+        private const string ShortName_DuoSub = "duosub";
+        private const string ShortName_SoloSub = "solosub";
+
         private const string Permission_Allow_All = "vehiclevendoroptions.allow.all";
         private const string Permission_Allow_ScrapHeli = "vehiclevendoroptions.allow.scraptransport";
         private const string Permission_Allow_MiniCopter = "vehiclevendoroptions.allow.minicopter";
         private const string Permission_Allow_RHIB = "vehiclevendoroptions.allow.rhib";
         private const string Permission_Allow_Rowboat = "vehiclevendoroptions.allow.rowboat";
+        private const string Permission_Allow_SoloSub = "vehiclevendoroptions.allow.solosub";
+        private const string Permission_Allow_DuoSub = "vehiclevendoroptions.allow.duosub";
 
         private const string Permission_Ownership_All = "vehiclevendoroptions.ownership.allvehicles";
         private const string Permission_Ownership_ScrapHeli = "vehiclevendoroptions.ownership.scraptransport";
         private const string Permission_Ownership_MiniCopter = "vehiclevendoroptions.ownership.minicopter";
         private const string Permission_Ownership_RHIB = "vehiclevendoroptions.ownership.rhib";
         private const string Permission_Ownership_Rowboat = "vehiclevendoroptions.ownership.rowboat";
+        private const string Permission_Ownership_SoloSub = "vehiclevendoroptions.ownership.solosub";
+        private const string Permission_Ownership_DuoSub = "vehiclevendoroptions.ownership.duosub";
         private const string Permission_Ownership_RidableHorse = "vehiclevendoroptions.ownership.ridablehorse";
 
         private const string Permission_Free_All = "vehiclevendoroptions.free.allvehicles";
@@ -42,6 +53,8 @@ namespace Oxide.Plugins
         private const string Permission_Free_Minicopter = "vehiclevendoroptions.free.minicopter";
         private const string Permission_Free_RHIB = "vehiclevendoroptions.free.rhib";
         private const string Permission_Free_Rowboat = "vehiclevendoroptions.free.rowboat";
+        private const string Permission_Free_SoloSub = "vehiclevendoroptions.free.solosub";
+        private const string Permission_Free_DuoSub = "vehiclevendoroptions.free.duosub";
         private const string Permission_Free_RidableHorse = "vehiclevendoroptions.free.ridablehorse";
 
         private const string Permission_Price_Prefix = "vehiclevendoroptions.price";
@@ -57,16 +70,22 @@ namespace Oxide.Plugins
             new PermissionIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Allow_MiniCopter),
             new PermissionIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Allow_RHIB),
             new PermissionIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Allow_Rowboat),
+            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyDuoSub, () => _pluginConfig.Vehicles.DuoSub, Permission_Allow_DuoSub),
+            new PermissionIntercepter(ConversationUtils.ResponseActions.BuySoloSub, () => _pluginConfig.Vehicles.SoloSub, Permission_Allow_SoloSub),
 
             new PaymentIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
             new PaymentIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
             new PaymentIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
             new PaymentIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
+            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyDuoSub, () => _pluginConfig.Vehicles.DuoSub, Permission_Free_DuoSub),
+            new PaymentIntercepter(ConversationUtils.ResponseActions.BuySoloSub, () => _pluginConfig.Vehicles.SoloSub, Permission_Free_SoloSub),
 
             new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
             new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
             new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
             new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
+            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyDuoSub, () => _pluginConfig.Vehicles.DuoSub, Permission_Free_DuoSub),
+            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuySoloSub, () => _pluginConfig.Vehicles.SoloSub, Permission_Free_SoloSub),
         };
 
         #endregion
@@ -83,19 +102,25 @@ namespace Oxide.Plugins
             permission.RegisterPermission(Permission_Allow_MiniCopter, this);
             permission.RegisterPermission(Permission_Allow_RHIB, this);
             permission.RegisterPermission(Permission_Allow_Rowboat, this);
+            permission.RegisterPermission(Permission_Allow_DuoSub, this);
+            permission.RegisterPermission(Permission_Allow_SoloSub, this);
 
             permission.RegisterPermission(Permission_Ownership_All, this);
-            permission.RegisterPermission(Permission_Ownership_MiniCopter, this);
             permission.RegisterPermission(Permission_Ownership_ScrapHeli, this);
-            permission.RegisterPermission(Permission_Ownership_Rowboat, this);
+            permission.RegisterPermission(Permission_Ownership_MiniCopter, this);
             permission.RegisterPermission(Permission_Ownership_RHIB, this);
+            permission.RegisterPermission(Permission_Ownership_Rowboat, this);
+            permission.RegisterPermission(Permission_Ownership_DuoSub, this);
+            permission.RegisterPermission(Permission_Ownership_SoloSub, this);
             permission.RegisterPermission(Permission_Ownership_RidableHorse, this);
 
             permission.RegisterPermission(Permission_Free_All, this);
-            permission.RegisterPermission(Permission_Free_Minicopter, this);
             permission.RegisterPermission(Permission_Free_ScrapHeli, this);
-            permission.RegisterPermission(Permission_Free_Rowboat, this);
+            permission.RegisterPermission(Permission_Free_Minicopter, this);
             permission.RegisterPermission(Permission_Free_RHIB, this);
+            permission.RegisterPermission(Permission_Free_Rowboat, this);
+            permission.RegisterPermission(Permission_Free_DuoSub, this);
+            permission.RegisterPermission(Permission_Free_SoloSub, this);
             permission.RegisterPermission(Permission_Free_RidableHorse, this);
 
             _pluginConfig.Vehicles.RegisterCustomPricePermissions();
@@ -117,6 +142,8 @@ namespace Oxide.Plugins
         private void OnEntitySpawned(MiniCopter vehicle) => HandleSpawn(vehicle);
 
         private void OnEntitySpawned(MotorRowboat vehicle) => HandleSpawn(vehicle);
+
+        private void OnEntitySpawned(BaseSubmarine vehicle) => HandleSpawn(vehicle);
 
         private object OnRidableAnimalClaim(RidableHorse horse, BasePlayer player)
         {
@@ -224,14 +251,14 @@ namespace Oxide.Plugins
 
         private string GetOwnershipPermission(BaseVehicle vehicle)
         {
-            // Must go before MiniCopter
+            // Must go before MiniCopter.
             if (vehicle is ScrapTransportHelicopter)
                 return Permission_Ownership_ScrapHeli;
 
             if (vehicle is MiniCopter)
                 return Permission_Ownership_MiniCopter;
 
-            // Must go before MotorRowboat
+            // Must go before MotorRowboat.
             if (vehicle is RHIB)
                 return Permission_Ownership_RHIB;
 
@@ -240,6 +267,13 @@ namespace Oxide.Plugins
 
             if (vehicle is RidableHorse)
                 return Permission_Ownership_RidableHorse;
+
+            // Must go before BaseSubmarine.
+            if (vehicle is SubmarineDuo)
+                return Permission_Ownership_DuoSub;
+
+            if (vehicle is BaseSubmarine)
+                return Permission_Ownership_SoloSub;
 
             return null;
         }
@@ -311,6 +345,8 @@ namespace Oxide.Plugins
                 public const string BuyMinicopter = "buyminicopter";
                 public const string BuyRHIB = "buyrhib";
                 public const string BuyRowboat = "buyboat";
+                public const string BuyDuoSub = "buysubduo";
+                public const string BuySoloSub = "buysub";
             }
 
             public static bool ResponseHasScrapPrice(ResponseNode responseNode, out int price)
@@ -631,19 +667,26 @@ namespace Oxide.Plugins
 
         private VehicleConfig GetVehicleConfig(BaseVehicle vehicle)
         {
-            // Must go before MiniCopter
+            // Must go before MiniCopter.
             if (vehicle is ScrapTransportHelicopter)
                 return _pluginConfig.Vehicles.ScrapTransport;
 
             if (vehicle is MiniCopter)
                 return _pluginConfig.Vehicles.Minicopter;
 
-            // Must go before MotorRowboat
+            // Must go before MotorRowboat.
             if (vehicle is RHIB)
                 return _pluginConfig.Vehicles.RHIB;
 
             if (vehicle is MotorRowboat)
                 return _pluginConfig.Vehicles.Rowboat;
+
+            // Must go before BaseSubmarine.
+            if (vehicle is SubmarineDuo)
+                return _pluginConfig.Vehicles.DuoSub;
+
+            if (vehicle is BaseSubmarine)
+                return _pluginConfig.Vehicles.SoloSub;
 
             return null;
         }
@@ -700,12 +743,36 @@ namespace Oxide.Plugins
                 },
             };
 
+            [JsonProperty("DuoSub")]
+            public VehicleConfig DuoSub = new VehicleConfig()
+            {
+                FuelAmount = 50,
+                PricesRequiringPermission = new PriceConfig[]
+                {
+                    new PriceConfig() { Amount = 200 },
+                    new PriceConfig() { Amount = 100 },
+                },
+            };
+
+            [JsonProperty("SoloSub")]
+            public VehicleConfig SoloSub = new VehicleConfig()
+            {
+                FuelAmount = 50,
+                PricesRequiringPermission = new PriceConfig[]
+                {
+                    new PriceConfig() { Amount = 125 },
+                    new PriceConfig() { Amount = 50 },
+                },
+            };
+
             public void RegisterCustomPricePermissions()
             {
-                ScrapTransport.InitAndValidate("scraptransport");
-                Minicopter.InitAndValidate("minicopter");
-                RHIB.InitAndValidate("rhib");
-                Rowboat.InitAndValidate("rowboat");
+                ScrapTransport.InitAndValidate(ShortName_ScrapHeli);
+                Minicopter.InitAndValidate(ShortName_Minicopter);
+                RHIB.InitAndValidate(ShortName_RHIB);
+                Rowboat.InitAndValidate(ShortName_Rowboat);
+                DuoSub.InitAndValidate(ShortName_DuoSub);
+                SoloSub.InitAndValidate(ShortName_SoloSub);
             }
         }
 
@@ -951,8 +1018,9 @@ namespace Oxide.Plugins
                     SaveConfig();
                 }
             }
-            catch
+            catch (Exception e)
             {
+                LogError(e.Message);
                 LogWarning($"Configuration file {Name}.json is invalid; using defaults");
                 LoadDefaultConfig();
             }
@@ -1012,6 +1080,8 @@ namespace Oxide.Plugins
             AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.Minicopter.PricesRequiringPermission);
             AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.RHIB.PricesRequiringPermission);
             AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.Rowboat.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.DuoSub.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.SoloSub.PricesRequiringPermission);
 
             lang.RegisterMessages(messages, this, "en");
         }
