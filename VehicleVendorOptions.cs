@@ -12,7 +12,7 @@ using static ConversationData;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.5.0")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.5.1")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -355,7 +355,7 @@ namespace Oxide.Plugins
                 {
                     if (condition.conditionType == ConversationCondition.ConditionType.HASSCRAP)
                     {
-                        price = condition.conditionAmount;
+                        price = Convert.ToInt32(condition.conditionAmount);
                         return true;
                     }
                 }
