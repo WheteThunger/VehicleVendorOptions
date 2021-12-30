@@ -5,7 +5,9 @@ This plugin allows configuring vehicles spawned by NPC vendors.
 - Allows configuring initial fuel amount for each vehicle type, overriding the vanilla default (50 for boats, and 20% of max stack size for helicopters)
 - Allows assigning ownership when players purchase vehicles, so other plugins can enable features based on their permissions
 - Allows adjusting vehicle prices for players with permission
+- Allows selling vehicles for Economics or Server Rewards currency
 - Allows restricting vehicles to permission
+- Allows configuring how long purchased vehicles can safely occupy the spawn location
 
 ## Permissions
 
@@ -73,12 +75,14 @@ To restrict vehicles to permission, set `RequiresPermission` to `true` in the pl
 ## Configuration
 
 Default configuration:
+
 ```json
 {
   "Vehicles": {
     "ScrapTransport": {
       "RequiresPermission": false,
       "FuelAmount": 100,
+      "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
           "ItemShortName": "scrap",
@@ -93,6 +97,7 @@ Default configuration:
     "Minicopter": {
       "RequiresPermission": false,
       "FuelAmount": 100,
+      "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
           "ItemShortName": "scrap",
@@ -107,6 +112,7 @@ Default configuration:
     "RHIB": {
       "RequiresPermission": false,
       "FuelAmount": 50,
+      "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
           "ItemShortName": "scrap",
@@ -121,6 +127,7 @@ Default configuration:
     "Rowboat": {
       "RequiresPermission": false,
       "FuelAmount": 50,
+      "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
           "ItemShortName": "scrap",
@@ -135,6 +142,7 @@ Default configuration:
     "DuoSub": {
       "RequiresPermission": false,
       "FuelAmount": 50,
+      "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
           "ItemShortName": "scrap",
@@ -149,6 +157,7 @@ Default configuration:
     "SoloSub": {
       "RequiresPermission": false,
       "FuelAmount": 50,
+      "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
           "ItemShortName": "scrap",
@@ -169,6 +178,8 @@ Each vehicle has the following options.
 - `RequiresPermission` (`true` or `false`) -- While `true`, players must have the `vehiclevendoroptions.allow.<vehicle>` permission to purchase vehicles of this type. While `false`, the vehicle type is open to all players.
 - `FuelAmount` -- The amount of low grade fuel to put in the vehicle's fuel tank when it spawns.
   - Set to `-1` for the max stack size of low grade fuel on your server.
+- `DespawnProtectionSeconds` -- The amount of time that purchased vehicles will be safe in the spawn location before new ones can be spawned in their place. Reducing this is favorable in high population servers and/or where vehicles are relatively cheap.
+  - Note: If you are having an issue where players cannot buy vehicles quickly enough in succession, you may want to consider using [Monument Addons](https://umod.org/plugins/monument-addons) to add more vehicle vendors to monuments.
 - `PricesRequiringPermission` -- List of prices that can be granted to players with permission. Each price config generates a permission of the format `vehiclevendoroptions.price.<vehicle>.<item>.<amount>`. Granting one to a player overrides the price they will be charged. They will also see UI text on the screen indicating what the real price is, since the vanilla UI cannot be changed.
   - `ItemShortName` (default: `"scrap"`) -- The short name of the item to charge the player.
   - `Amount` -- The amount of items, Economics currency or Server Rewards points required to purchase the vehicle.
