@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 using Oxide.Core;
 using Oxide.Core.Plugins;
 using Oxide.Core.Libraries.Covalence;
@@ -19,10 +18,9 @@ namespace Oxide.Plugins
         #region Fields
 
         [PluginReference]
-        private Plugin Economics, ServerRewards;
+        private readonly Plugin Economics, ServerRewards;
 
-        private static VehicleVendorOptions _pluginInstance;
-        private static Configuration _pluginConfig;
+        private Configuration _config;
 
         private const string ShortName_ScrapHeli = "scraptransport";
         private const string ShortName_Minicopter = "minicopter";
@@ -59,35 +57,15 @@ namespace Oxide.Plugins
 
         private const string Permission_Price_Prefix = "vehiclevendoroptions.price";
 
-        private const int MinHidddenSlot = 24;
+        private const int MinHiddenSlot = 24;
         private const int ScrapItemId = -932201673;
         private const float VanillaDespawnProtectionTime = 300;
 
+        private readonly object False = false;
+
         private Item _scrapItem;
 
-        private readonly List<BaseResponseIntercepter> _responseIntercepters = new List<BaseResponseIntercepter>()
-        {
-            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Allow_ScrapHeli),
-            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Allow_MiniCopter),
-            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Allow_RHIB),
-            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Allow_Rowboat),
-            new PermissionIntercepter(ConversationUtils.ResponseActions.BuyDuoSub, () => _pluginConfig.Vehicles.DuoSub, Permission_Allow_DuoSub),
-            new PermissionIntercepter(ConversationUtils.ResponseActions.BuySoloSub, () => _pluginConfig.Vehicles.SoloSub, Permission_Allow_SoloSub),
-
-            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
-            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
-            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
-            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
-            new PaymentIntercepter(ConversationUtils.ResponseActions.BuyDuoSub, () => _pluginConfig.Vehicles.DuoSub, Permission_Free_DuoSub),
-            new PaymentIntercepter(ConversationUtils.ResponseActions.BuySoloSub, () => _pluginConfig.Vehicles.SoloSub, Permission_Free_SoloSub),
-
-            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyScrapHeli, () => _pluginConfig.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
-            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyMinicopter, () => _pluginConfig.Vehicles.Minicopter, Permission_Free_Minicopter),
-            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyRHIB, () => _pluginConfig.Vehicles.RHIB, Permission_Free_RHIB),
-            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyRowboat, () => _pluginConfig.Vehicles.Rowboat, Permission_Free_Rowboat),
-            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuyDuoSub, () => _pluginConfig.Vehicles.DuoSub, Permission_Free_DuoSub),
-            new PayPromptIntercepter(ConversationUtils.ResponseActions.BuySoloSub, () => _pluginConfig.Vehicles.SoloSub, Permission_Free_SoloSub),
-        };
+        private List<BaseResponseInterceptor> _responseInterceptors;
 
         #endregion
 
@@ -95,9 +73,6 @@ namespace Oxide.Plugins
 
         private void Init()
         {
-            _pluginInstance = this;
-            _pluginConfig = Config.ReadObject<Configuration>();
-
             permission.RegisterPermission(Permission_Allow_All, this);
             permission.RegisterPermission(Permission_Allow_ScrapHeli, this);
             permission.RegisterPermission(Permission_Allow_MiniCopter, this);
@@ -124,7 +99,31 @@ namespace Oxide.Plugins
             permission.RegisterPermission(Permission_Free_SoloSub, this);
             permission.RegisterPermission(Permission_Free_RidableHorse, this);
 
-            _pluginConfig.Vehicles.RegisterCustomPricePermissions();
+            _config.Vehicles.RegisterCustomPricePermissions(this);
+
+            _responseInterceptors = new List<BaseResponseInterceptor>
+            {
+                new PermissionInterceptor(ConversationUtils.ResponseActions.BuyScrapHeli, () => _config.Vehicles.ScrapTransport, Permission_Allow_ScrapHeli),
+                new PermissionInterceptor(ConversationUtils.ResponseActions.BuyMinicopter, () => _config.Vehicles.Minicopter, Permission_Allow_MiniCopter),
+                new PermissionInterceptor(ConversationUtils.ResponseActions.BuyRHIB, () => _config.Vehicles.RHIB, Permission_Allow_RHIB),
+                new PermissionInterceptor(ConversationUtils.ResponseActions.BuyRowboat, () => _config.Vehicles.Rowboat, Permission_Allow_Rowboat),
+                new PermissionInterceptor(ConversationUtils.ResponseActions.BuyDuoSub, () => _config.Vehicles.DuoSub, Permission_Allow_DuoSub),
+                new PermissionInterceptor(ConversationUtils.ResponseActions.BuySoloSub, () => _config.Vehicles.SoloSub, Permission_Allow_SoloSub),
+
+                new PaymentInterceptor(ConversationUtils.ResponseActions.BuyScrapHeli, () => _config.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
+                new PaymentInterceptor(ConversationUtils.ResponseActions.BuyMinicopter, () => _config.Vehicles.Minicopter, Permission_Free_Minicopter),
+                new PaymentInterceptor(ConversationUtils.ResponseActions.BuyRHIB, () => _config.Vehicles.RHIB, Permission_Free_RHIB),
+                new PaymentInterceptor(ConversationUtils.ResponseActions.BuyRowboat, () => _config.Vehicles.Rowboat, Permission_Free_Rowboat),
+                new PaymentInterceptor(ConversationUtils.ResponseActions.BuyDuoSub, () => _config.Vehicles.DuoSub, Permission_Free_DuoSub),
+                new PaymentInterceptor(ConversationUtils.ResponseActions.BuySoloSub, () => _config.Vehicles.SoloSub, Permission_Free_SoloSub),
+
+                new PayPromptInterceptor(ConversationUtils.ResponseActions.BuyScrapHeli, () => _config.Vehicles.ScrapTransport, Permission_Free_ScrapHeli),
+                new PayPromptInterceptor(ConversationUtils.ResponseActions.BuyMinicopter, () => _config.Vehicles.Minicopter, Permission_Free_Minicopter),
+                new PayPromptInterceptor(ConversationUtils.ResponseActions.BuyRHIB, () => _config.Vehicles.RHIB, Permission_Free_RHIB),
+                new PayPromptInterceptor(ConversationUtils.ResponseActions.BuyRowboat, () => _config.Vehicles.Rowboat, Permission_Free_Rowboat),
+                new PayPromptInterceptor(ConversationUtils.ResponseActions.BuyDuoSub, () => _config.Vehicles.DuoSub, Permission_Free_DuoSub),
+                new PayPromptInterceptor(ConversationUtils.ResponseActions.BuySoloSub, () => _config.Vehicles.SoloSub, Permission_Free_SoloSub),
+            };
         }
 
         private void OnServerInitialized()
@@ -136,8 +135,6 @@ namespace Oxide.Plugins
         {
             CostLabelUI.DestroyAll();
             _scrapItem?.Remove();
-            _pluginInstance = null;
-            _pluginConfig = null;
         }
 
         private void OnEntitySpawned(MiniCopter vehicle) => HandleSpawn(vehicle);
@@ -154,7 +151,7 @@ namespace Oxide.Plugins
             horse.SetFlag(BaseEntity.Flags.Reserved2, false);
             horse.AttemptMount(player, doMountChecks: false);
             Interface.CallHook("OnRidableAnimalClaimed", horse, player);
-            return false;
+            return False;
         }
 
         private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player) =>
@@ -164,13 +161,13 @@ namespace Oxide.Plugins
         {
             CostLabelUI.Destroy(player);
 
-            foreach (var intercepter in _responseIntercepters)
+            foreach (var interceptor in _responseInterceptors)
             {
-                var forceNextSpeechNode = intercepter.Intercept(vendor, player, conversationData, responseNode);
+                var forceNextSpeechNode = interceptor.Intercept(this, vendor, player, conversationData, responseNode);
                 if (forceNextSpeechNode != string.Empty)
                 {
                     ConversationUtils.ForceSpeechNode(vendor, player, forceNextSpeechNode);
-                    return false;
+                    return False;
                 }
             }
 
@@ -237,19 +234,25 @@ namespace Oxide.Plugins
         private void SetOwnerIfPermission(BaseVehicle vehicle, BasePlayer basePlayer)
         {
             if (HasPermissionAny(basePlayer.IPlayer, Permission_Ownership_All, GetOwnershipPermission(vehicle)))
+            {
                 vehicle.OwnerID = basePlayer.userID;
+            }
         }
-
-        private bool HasPermissionAny(IPlayer player, params string[] permissionNames) =>
-            HasPermissionAny(player.Id, permissionNames);
 
         private bool HasPermissionAny(string userIdString, params string[] permissionNames)
         {
             foreach (var perm in permissionNames)
+            {
                 if (perm != null && permission.UserHasPermission(userIdString, perm))
                     return true;
+            }
 
             return false;
+        }
+
+        private bool HasPermissionAny(IPlayer player, params string[] permissionNames)
+        {
+            return HasPermissionAny(player.Id, permissionNames);
         }
 
         private string GetOwnershipPermission(BaseVehicle vehicle)
@@ -287,13 +290,17 @@ namespace Oxide.Plugins
 
         private static class PlayerInventoryUtils
         {
-            public static int GetPlayerNeededScrap(BasePlayer player, int amountRequired) =>
-                amountRequired - player.inventory.GetAmount(ScrapItemId);
+            public static int GetPlayerNeededScrap(BasePlayer player, int amountRequired)
+            {
+                return amountRequired - player.inventory.GetAmount(ScrapItemId);
+            }
 
-            public static void Refresh(BasePlayer player) =>
+            public static void Refresh(BasePlayer player)
+            {
                 player.inventory.SendUpdatedInventory(PlayerInventory.Type.Main, player.inventory.containerMain);
+            }
 
-            public static void UpdateWithFakeScrap(BasePlayer player, int amountDiff)
+            public static void UpdateWithFakeScrap(BasePlayer player, Item scrapItem, int amountDiff)
             {
                 using (var containerUpdate = Facepunch.Pool.Get<ProtoBuf.UpdateItemContainer>())
                 {
@@ -301,7 +308,7 @@ namespace Oxide.Plugins
                     containerUpdate.container = Facepunch.Pool.Get<List<ProtoBuf.ItemContainer>>();
 
                     var containerInfo = player.inventory.containerMain.Save();
-                    var itemSlot = AddFakeScrapToContainerUpdate(containerInfo, amountDiff);
+                    var itemSlot = AddFakeScrapToContainerUpdate(containerInfo, scrapItem, amountDiff);
 
                     containerUpdate.container.Capacity = itemSlot + 1;
                     containerUpdate.container.Add(containerInfo);
@@ -309,24 +316,25 @@ namespace Oxide.Plugins
                 }
             }
 
-            private static int AddFakeScrapToContainerUpdate(ProtoBuf.ItemContainer containerInfo, int scrapAmount)
+            private static int AddFakeScrapToContainerUpdate(ProtoBuf.ItemContainer containerInfo, Item scrapItem, int scrapAmount)
             {
                 // Always use a separate item so it can be placed out of view.
-                var itemInfo = _pluginInstance._scrapItem.Save();
+                var itemInfo = scrapItem.Save();
                 itemInfo.amount = scrapAmount;
-                itemInfo.slot = PlayerInventoryUtils.GetNextAvailableSlot(containerInfo);
+                itemInfo.slot = GetNextAvailableSlot(containerInfo);
                 containerInfo.contents.Add(itemInfo);
                 return itemInfo.slot;
             }
 
             private static int GetNextAvailableSlot(ProtoBuf.ItemContainer containerInfo)
             {
-                var highestSlot = MinHidddenSlot;
+                var highestSlot = MinHiddenSlot;
                 foreach (var item in containerInfo.contents)
                 {
                     if (item.slot > highestSlot)
                         highestSlot = item.slot;
                 }
+
                 return highestSlot;
             }
         }
@@ -369,7 +377,7 @@ namespace Oxide.Plugins
 
             public static bool PrecedesPaymentOption(ConversationData conversationData, ResponseNode responseNode, string matchResponseAction, out int scrapPrice)
             {
-                var resultingSpeechNode = ConversationUtils.FindSpeechNodeByName(conversationData, responseNode.resultingSpeechNode);
+                var resultingSpeechNode = FindSpeechNodeByName(conversationData, responseNode.resultingSpeechNode);
                 if (resultingSpeechNode == null)
                 {
                     scrapPrice = 0;
@@ -380,7 +388,7 @@ namespace Oxide.Plugins
                 {
                     if (!string.IsNullOrEmpty(matchResponseAction)
                         && matchResponseAction == futureResponseOption.actionString
-                        && ConversationUtils.ResponseHasScrapPrice(futureResponseOption, out scrapPrice))
+                        && ResponseHasScrapPrice(futureResponseOption, out scrapPrice))
                         return true;
                 }
 
@@ -390,7 +398,7 @@ namespace Oxide.Plugins
 
             public static void ForceSpeechNode(NPCTalking npcTalking, BasePlayer player, string speechNodeName)
             {
-                int speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex(speechNodeName);
+                var speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex(speechNodeName);
                 npcTalking.ForceSpeechNode(player, speechNodeIndex);
             }
 
@@ -401,6 +409,7 @@ namespace Oxide.Plugins
                     if (speechNode.shortname == speechNodeName)
                         return speechNode;
                 }
+
                 return null;
             }
         }
@@ -424,15 +433,15 @@ namespace Oxide.Plugins
                     Destroy(player);
             }
 
-            public static void Create(BasePlayer player, PriceConfig priceConfig)
+            public static void Create(VehicleVendorOptions plugin, BasePlayer player, PriceConfig priceConfig)
             {
                 var itemPrice = priceConfig.Amount == 0
-                    ? _pluginInstance.GetMessage(player, "UI.Price.Free")
+                    ? plugin.GetMessage(player, "UI.Price.Free")
                     : priceConfig.PaymentProvider is EconomicsPaymentProvider
-                    ? _pluginInstance.GetMessage(player, "UI.Currency.Economics", priceConfig.Amount)
+                    ? plugin.GetMessage(player, "UI.Currency.Economics", priceConfig.Amount)
                     : priceConfig.PaymentProvider is ServerRewardsPaymentProvider
-                    ? _pluginInstance.GetMessage(player, "UI.Currency.ServerRewards", priceConfig.Amount)
-                    : $"{priceConfig.Amount} {_pluginInstance.GetMessage(player, _pluginInstance.GetItemNameLocalizationKey(priceConfig.ItemShortName))}";
+                    ? plugin.GetMessage(player, "UI.Currency.ServerRewards", priceConfig.Amount)
+                    : $"{priceConfig.Amount} {plugin.GetMessage(player, plugin.GetItemNameLocalizationKey(priceConfig.ItemShortName))}";
 
                 var cuiElements = new CuiElementContainer
                 {
@@ -448,7 +457,7 @@ namespace Oxide.Plugins
                             },
                             Text =
                             {
-                                Text = _pluginInstance.GetMessage(player, "UI.ActualPrice", itemPrice),
+                                Text = plugin.GetMessage(player, "UI.ActualPrice", itemPrice),
                                 FontSize = 11,
                                 Font = "robotocondensed-regular.ttf",
                                 Align = UnityEngine.TextAnchor.MiddleLeft
@@ -465,38 +474,38 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Response Intercepters
+        #region Response Interceptors
 
-        private abstract class BaseResponseIntercepter
+        private abstract class BaseResponseInterceptor
         {
             protected Func<VehicleConfig> _getVehicleConfig;
             protected string _freePermission;
 
-            public BaseResponseIntercepter(Func<VehicleConfig> getVehicleConfig, string freePermission)
+            protected BaseResponseInterceptor(Func<VehicleConfig> getVehicleConfig, string freePermission)
             {
                 _getVehicleConfig = getVehicleConfig;
                 _freePermission = freePermission;
             }
 
-            public abstract string Intercept(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode);
+            public abstract string Intercept(VehicleVendorOptions plugin, NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode);
         }
 
-        private class PayPromptIntercepter : BaseResponseIntercepter
+        private class PayPromptInterceptor : BaseResponseInterceptor
         {
             private string _matchResponseAction;
 
-            public PayPromptIntercepter(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string freePermission) : base(getVehicleConfig, freePermission)
+            public PayPromptInterceptor(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string freePermission) : base(getVehicleConfig, freePermission)
             {
                 _matchResponseAction = matchResponseAction;
             }
 
-            public override string Intercept(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+            public override string Intercept(VehicleVendorOptions plugin, NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
             {
                 int vanillaPrice;
                 if (!ConversationUtils.PrecedesPaymentOption(conversationData, responseNode, _matchResponseAction, out vanillaPrice))
                     return string.Empty;
 
-                var priceConfig = _getVehicleConfig().GetPriceForPlayer(player.IPlayer, _freePermission);
+                var priceConfig = _getVehicleConfig().GetPriceForPlayer(plugin, player.IPlayer, _freePermission);
                 if (priceConfig == null || priceConfig.MatchesVanillaPrice(vanillaPrice))
                     return string.Empty;
 
@@ -504,7 +513,7 @@ namespace Oxide.Plugins
                 var canAffordVanillaPrice = neededScrap <= 0;
                 var canAffordCustomPrice = priceConfig.CanPlayerAfford(player);
 
-                CostLabelUI.Create(player, priceConfig);
+                CostLabelUI.Create(plugin, player, priceConfig);
 
                 if (canAffordCustomPrice == canAffordVanillaPrice)
                     return string.Empty;
@@ -516,7 +525,7 @@ namespace Oxide.Plugins
                 }
 
                 // Add or remove scrap so the vanilla logic for showing the payment option will match the custom payment logic.
-                PlayerInventoryUtils.UpdateWithFakeScrap(player, neededScrap);
+                PlayerInventoryUtils.UpdateWithFakeScrap(player, plugin._scrapItem, neededScrap);
 
                 // This delay needs to be long enough for the text to print out, which could vary by language.
                 player.Invoke(() => PlayerInventoryUtils.Refresh(player), 3f);
@@ -525,16 +534,16 @@ namespace Oxide.Plugins
             }
         }
 
-        private class PaymentIntercepter : BaseResponseIntercepter
+        private class PaymentInterceptor : BaseResponseInterceptor
         {
             private string _matchResponseAction;
 
-            public PaymentIntercepter(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string freePermission) : base(getVehicleConfig, freePermission)
+            public PaymentInterceptor(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string freePermission) : base(getVehicleConfig, freePermission)
             {
                 _matchResponseAction = matchResponseAction;
             }
 
-            public override string Intercept(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+            public override string Intercept(VehicleVendorOptions plugin, NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
             {
                 if (responseNode.actionString != _matchResponseAction)
                     return string.Empty;
@@ -543,15 +552,11 @@ namespace Oxide.Plugins
                 if (!ConversationUtils.ResponseHasScrapPrice(responseNode, out vanillaPrice))
                     return string.Empty;
 
-                var priceConfig = _getVehicleConfig().GetPriceForPlayer(player.IPlayer, _freePermission);
+                var priceConfig = _getVehicleConfig().GetPriceForPlayer(plugin, player.IPlayer, _freePermission);
                 if (priceConfig == null || priceConfig.MatchesVanillaPrice(vanillaPrice))
                     return string.Empty;
 
-                var neededScrap = PlayerInventoryUtils.GetPlayerNeededScrap(player, vanillaPrice);
-                var canAffordVanillaPrice = neededScrap <= 0;
-                var canAffordCustomPrice = priceConfig.CanPlayerAfford(player);
-
-                if (!canAffordCustomPrice)
+                if (!priceConfig.CanPlayerAfford(player))
                     return ConversationUtils.SpeechNodes.Goodbye;
 
                 // Add scrap so the vanilla checks will pass. Add full amount for simplicity.
@@ -560,29 +565,29 @@ namespace Oxide.Plugins
                 // Check conditions just in case, to make sure we don't give free scrap.
                 if (!responseNode.PassesConditions(player, npcTalking))
                 {
-                    _pluginInstance.LogError($"Price adjustment unexpectedly failed for price config (response: '{_matchResponseAction}', player: {player.userID}).");
+                    plugin.LogError($"Price adjustment unexpectedly failed for price config (response: '{_matchResponseAction}', player: {player.userID}).");
                     player.inventory.containerMain.AddItem(ItemManager.itemDictionary[ScrapItemId], -vanillaPrice);
                     return string.Empty;
                 }
 
-                priceConfig.TryChargePlayer(player, vanillaPrice);
+                priceConfig.TryChargePlayer(player);
 
                 return string.Empty;
             }
         }
 
-        private class PermissionIntercepter : BaseResponseIntercepter
+        private class PermissionInterceptor : BaseResponseInterceptor
         {
             private string _matchResponseAction;
             private string _allowPermission;
 
-            public PermissionIntercepter(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string allowPermission) : base(getVehicleConfig, null)
+            public PermissionInterceptor(string matchResponseAction, Func<VehicleConfig> getVehicleConfig, string allowPermission) : base(getVehicleConfig, null)
             {
                 _matchResponseAction = matchResponseAction;
                 _allowPermission = allowPermission;
             }
 
-            public override string Intercept(NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
+            public override string Intercept(VehicleVendorOptions plugin, NPCTalking npcTalking, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
             {
                 int vanillaPrice;
                 if (!ConversationUtils.PrecedesPaymentOption(conversationData, responseNode, _matchResponseAction, out vanillaPrice))
@@ -591,10 +596,10 @@ namespace Oxide.Plugins
                 if (!_getVehicleConfig().RequiresPermission)
                     return string.Empty;
 
-                if (_pluginInstance.HasPermissionAny(player.UserIDString, Permission_Allow_All, _allowPermission))
+                if (plugin.HasPermissionAny(player.UserIDString, Permission_Allow_All, _allowPermission))
                     return string.Empty;
 
-                _pluginInstance.ChatMessage(player, "Error.Vehicle.NoPermission");
+                plugin.ChatMessage(player, "Error.Vehicle.NoPermission");
                 return ConversationUtils.SpeechNodes.Goodbye;
             }
         }
@@ -612,38 +617,48 @@ namespace Oxide.Plugins
 
         private class EconomicsPaymentProvider : IPaymentProvider
         {
-            private static EconomicsPaymentProvider _providerInstance = new EconomicsPaymentProvider();
-            public static EconomicsPaymentProvider Instance => _providerInstance;
+            private readonly VehicleVendorOptions _plugin;
+            private Plugin _ownerPlugin => _plugin.Economics;
 
-            private Plugin _ownerPlugin => _pluginInstance.Economics;
-
-            private EconomicsPaymentProvider() {}
+            public EconomicsPaymentProvider(VehicleVendorOptions plugin)
+            {
+                _plugin = plugin;
+            }
 
             public bool IsAvailable => _ownerPlugin != null;
 
-            public int GetBalance(BasePlayer player) =>
-                Convert.ToInt32(_ownerPlugin.Call("Balance", player.userID));
+            public int GetBalance(BasePlayer player)
+            {
+                return Convert.ToInt32(_ownerPlugin.Call("Balance", player.userID));
+            }
 
-            public void TakeBalance(BasePlayer player, int amount) =>
+            public void TakeBalance(BasePlayer player, int amount)
+            {
                 _ownerPlugin.Call("Withdraw", player.userID, Convert.ToDouble(amount));
+            }
         }
 
         private class ServerRewardsPaymentProvider : IPaymentProvider
         {
-            private static ServerRewardsPaymentProvider _providerInstance = new ServerRewardsPaymentProvider();
-            public static ServerRewardsPaymentProvider Instance => _providerInstance;
+            private readonly VehicleVendorOptions _plugin;
+            private Plugin _ownerPlugin => _plugin.ServerRewards;
 
-            private Plugin _ownerPlugin => _pluginInstance.ServerRewards;
-
-            private ServerRewardsPaymentProvider() {}
+            public ServerRewardsPaymentProvider(VehicleVendorOptions plugin)
+            {
+                _plugin = plugin;
+            }
 
             public bool IsAvailable => _ownerPlugin != null;
 
-            public int GetBalance(BasePlayer player) =>
-                Convert.ToInt32(_ownerPlugin.Call("CheckPoints", player.userID));
+            public int GetBalance(BasePlayer player)
+            {
+                return Convert.ToInt32(_ownerPlugin.Call("CheckPoints", player.userID));
+            }
 
-            public void TakeBalance(BasePlayer player, int amount) =>
+            public void TakeBalance(BasePlayer player, int amount)
+            {
                 _ownerPlugin.Call("TakePoints", player.userID, amount);
+            }
         }
 
         private class ItemsPaymentProvider : IPaymentProvider
@@ -672,32 +687,26 @@ namespace Oxide.Plugins
         {
             // Must go before MiniCopter.
             if (vehicle is ScrapTransportHelicopter)
-                return _pluginConfig.Vehicles.ScrapTransport;
+                return _config.Vehicles.ScrapTransport;
 
             if (vehicle is MiniCopter)
-                return _pluginConfig.Vehicles.Minicopter;
+                return _config.Vehicles.Minicopter;
 
             // Must go before MotorRowboat.
             if (vehicle is RHIB)
-                return _pluginConfig.Vehicles.RHIB;
+                return _config.Vehicles.RHIB;
 
             if (vehicle is MotorRowboat)
-                return _pluginConfig.Vehicles.Rowboat;
+                return _config.Vehicles.Rowboat;
 
             // Must go before BaseSubmarine.
             if (vehicle is SubmarineDuo)
-                return _pluginConfig.Vehicles.DuoSub;
+                return _config.Vehicles.DuoSub;
 
             if (vehicle is BaseSubmarine)
-                return _pluginConfig.Vehicles.SoloSub;
+                return _config.Vehicles.SoloSub;
 
             return null;
-        }
-
-        private class Configuration : SerializableConfiguration
-        {
-            [JsonProperty("Vehicles")]
-            public VehicleConfigMap Vehicles = new VehicleConfigMap();
         }
 
         private class VehicleConfigMap
@@ -706,10 +715,10 @@ namespace Oxide.Plugins
             public VehicleConfig ScrapTransport = new VehicleConfig()
             {
                 FuelAmount = 100,
-                PricesRequiringPermission = new PriceConfig[]
+                PricesRequiringPermission = new[]
                 {
-                    new PriceConfig() { Amount = 800 },
-                    new PriceConfig() { Amount = 400 },
+                    new PriceConfig { Amount = 800 },
+                    new PriceConfig { Amount = 400 },
                 },
             };
 
@@ -717,10 +726,10 @@ namespace Oxide.Plugins
             public VehicleConfig Minicopter = new VehicleConfig()
             {
                 FuelAmount = 100,
-                PricesRequiringPermission = new PriceConfig[]
+                PricesRequiringPermission = new[]
                 {
-                    new PriceConfig() { Amount = 500 },
-                    new PriceConfig() { Amount = 250 },
+                    new PriceConfig { Amount = 500 },
+                    new PriceConfig { Amount = 250 },
                 },
             };
 
@@ -728,10 +737,10 @@ namespace Oxide.Plugins
             public VehicleConfig RHIB = new VehicleConfig()
             {
                 FuelAmount = 50,
-                PricesRequiringPermission = new PriceConfig[]
+                PricesRequiringPermission = new[]
                 {
-                    new PriceConfig() { Amount = 200 },
-                    new PriceConfig() { Amount = 100 },
+                    new PriceConfig { Amount = 200 },
+                    new PriceConfig { Amount = 100 },
                 },
             };
 
@@ -739,10 +748,10 @@ namespace Oxide.Plugins
             public VehicleConfig Rowboat = new VehicleConfig()
             {
                 FuelAmount = 50,
-                PricesRequiringPermission = new PriceConfig[]
+                PricesRequiringPermission = new[]
                 {
-                    new PriceConfig() { Amount = 80 },
-                    new PriceConfig() { Amount = 40 },
+                    new PriceConfig { Amount = 80 },
+                    new PriceConfig { Amount = 40 },
                 },
             };
 
@@ -750,10 +759,10 @@ namespace Oxide.Plugins
             public VehicleConfig DuoSub = new VehicleConfig()
             {
                 FuelAmount = 50,
-                PricesRequiringPermission = new PriceConfig[]
+                PricesRequiringPermission = new[]
                 {
-                    new PriceConfig() { Amount = 200 },
-                    new PriceConfig() { Amount = 100 },
+                    new PriceConfig { Amount = 200 },
+                    new PriceConfig { Amount = 100 },
                 },
             };
 
@@ -761,27 +770,27 @@ namespace Oxide.Plugins
             public VehicleConfig SoloSub = new VehicleConfig()
             {
                 FuelAmount = 50,
-                PricesRequiringPermission = new PriceConfig[]
+                PricesRequiringPermission = new[]
                 {
-                    new PriceConfig() { Amount = 125 },
-                    new PriceConfig() { Amount = 50 },
+                    new PriceConfig { Amount = 125 },
+                    new PriceConfig { Amount = 50 },
                 },
             };
 
-            public void RegisterCustomPricePermissions()
+            public void RegisterCustomPricePermissions(VehicleVendorOptions plugin)
             {
-                ScrapTransport.InitAndValidate(ShortName_ScrapHeli);
-                Minicopter.InitAndValidate(ShortName_Minicopter);
-                RHIB.InitAndValidate(ShortName_RHIB);
-                Rowboat.InitAndValidate(ShortName_Rowboat);
-                DuoSub.InitAndValidate(ShortName_DuoSub);
-                SoloSub.InitAndValidate(ShortName_SoloSub);
+                ScrapTransport.InitAndValidate(plugin, ShortName_ScrapHeli);
+                Minicopter.InitAndValidate(plugin, ShortName_Minicopter);
+                RHIB.InitAndValidate(plugin, ShortName_RHIB);
+                Rowboat.InitAndValidate(plugin, ShortName_Rowboat);
+                DuoSub.InitAndValidate(plugin, ShortName_DuoSub);
+                SoloSub.InitAndValidate(plugin, ShortName_SoloSub);
             }
         }
 
         private class VehicleConfig
         {
-            private static PriceConfig FreePriceConfig = new PriceConfig() { Amount = 0 };
+            private static PriceConfig FreePriceConfig = new PriceConfig { Amount = 0 };
 
             [JsonProperty("RequiresPermission")]
             public bool RequiresPermission = false;
@@ -795,18 +804,18 @@ namespace Oxide.Plugins
             [JsonProperty("PricesRequiringPermission")]
             public PriceConfig[] PricesRequiringPermission = new PriceConfig[0];
 
-            public void InitAndValidate(string vehicleType)
+            public void InitAndValidate(VehicleVendorOptions plugin, string vehicleType)
             {
                 foreach (var priceConfig in PricesRequiringPermission)
                 {
-                    priceConfig.InitAndValidate(vehicleType);
-                    _pluginInstance.permission.RegisterPermission(priceConfig.Permission, _pluginInstance);
+                    priceConfig.InitAndValidate(plugin, vehicleType);
+                    plugin.permission.RegisterPermission(priceConfig.Permission, plugin);
                 }
             }
 
-            public PriceConfig GetPriceForPlayer(IPlayer player, string freePermission)
+            public PriceConfig GetPriceForPlayer(VehicleVendorOptions plugin, IPlayer player, string freePermission)
             {
-                if (_pluginInstance.HasPermissionAny(player, Permission_Free_All, freePermission))
+                if (plugin.HasPermissionAny(player, Permission_Free_All, freePermission))
                     return FreePriceConfig;
 
                 if (PricesRequiringPermission == null)
@@ -844,7 +853,7 @@ namespace Oxide.Plugins
             public IPaymentProvider PaymentProvider;
 
             [JsonIgnore]
-            public bool IsValid => PaymentProvider?.IsAvailable ?? false && Permission != string.Empty;
+            public bool IsValid => (PaymentProvider?.IsAvailable ?? false) && Permission != string.Empty;
 
             private ItemDefinition _itemDefinition;
             [JsonIgnore]
@@ -863,28 +872,30 @@ namespace Oxide.Plugins
                 }
             }
 
-            public bool MatchesVanillaPrice(int vanillaPrice) =>
-                PaymentProvider is ItemsPaymentProvider
-                && ItemShortName == "scrap"
-                && Amount == vanillaPrice;
-
-            public void InitAndValidate(string vehicleType)
+            public bool MatchesVanillaPrice(int vanillaPrice)
             {
-                Permission = GeneratePermission(vehicleType);
-                PaymentProvider = CreatePaymentProvider();
+                return PaymentProvider is ItemsPaymentProvider
+                    && ItemShortName == "scrap"
+                    && Amount == vanillaPrice;
             }
 
-            private IPaymentProvider CreatePaymentProvider()
+            public void InitAndValidate(VehicleVendorOptions plugin, string vehicleType)
+            {
+                Permission = GeneratePermission(vehicleType);
+                PaymentProvider = CreatePaymentProvider(plugin);
+            }
+
+            private IPaymentProvider CreatePaymentProvider(VehicleVendorOptions plugin)
             {
                 if (UseEconomics)
-                    return EconomicsPaymentProvider.Instance;
+                    return new EconomicsPaymentProvider(plugin);
 
                 if (UseServerRewards)
-                    return ServerRewardsPaymentProvider.Instance;
+                    return new ServerRewardsPaymentProvider(plugin);
 
                 if (ItemDef == null)
                 {
-                    _pluginInstance.LogError($"Price config contains an invalid item short name: '{ItemShortName}'.");
+                    plugin.LogError($"Price config contains an invalid item short name: '{ItemShortName}'.");
                     return null;
                 }
 
@@ -920,7 +931,7 @@ namespace Oxide.Plugins
                 return PaymentProvider.GetBalance(player) >= Amount;
             }
 
-            public bool TryChargePlayer(BasePlayer player, int vanillaScrapPrice)
+            public bool TryChargePlayer(BasePlayer player)
             {
                 if (Amount <= 0)
                     return true;
@@ -930,13 +941,19 @@ namespace Oxide.Plugins
             }
         }
 
+        private class Configuration : BaseConfiguration
+        {
+            [JsonProperty("Vehicles")]
+            public VehicleConfigMap Vehicles = new VehicleConfigMap();
+        }
+
         private Configuration GetDefaultConfig() => new Configuration();
 
         #endregion
 
-        #region Configuration Boilerplate
+        #region Configuration Helpers
 
-        internal class SerializableConfiguration
+        internal class BaseConfiguration
         {
             public string ToJson() => JsonConvert.SerializeObject(this);
 
@@ -965,7 +982,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private bool MaybeUpdateConfig(SerializableConfiguration config)
+        private bool MaybeUpdateConfig(BaseConfiguration config)
         {
             var currentWithDefaults = config.ToDictionary();
             var currentRaw = Config.ToDictionary(x => x.Key, x => x.Value);
@@ -974,7 +991,7 @@ namespace Oxide.Plugins
 
         private bool MaybeUpdateConfigDict(Dictionary<string, object> currentWithDefaults, Dictionary<string, object> currentRaw)
         {
-            bool changed = false;
+            var changed = false;
 
             foreach (var key in currentWithDefaults.Keys)
             {
@@ -1005,20 +1022,20 @@ namespace Oxide.Plugins
             return changed;
         }
 
-        protected override void LoadDefaultConfig() => _pluginConfig = GetDefaultConfig();
+        protected override void LoadDefaultConfig() => _config = GetDefaultConfig();
 
         protected override void LoadConfig()
         {
             base.LoadConfig();
             try
             {
-                _pluginConfig = Config.ReadObject<Configuration>();
-                if (_pluginConfig == null)
+                _config = Config.ReadObject<Configuration>();
+                if (_config == null)
                 {
                     throw new JsonException();
                 }
 
-                if (MaybeUpdateConfig(_pluginConfig))
+                if (MaybeUpdateConfig(_config))
                 {
                     LogWarning("Configuration appears to be outdated; updating and saving");
                     SaveConfig();
@@ -1035,7 +1052,7 @@ namespace Oxide.Plugins
         protected override void SaveConfig()
         {
             Log($"Configuration changes saved to {Name}.json");
-            Config.WriteObject(_pluginConfig, true);
+            Config.WriteObject(_config, true);
         }
 
         #endregion
@@ -1082,12 +1099,12 @@ namespace Oxide.Plugins
                 ["UI.Currency.ServerRewards"] = "{0} reward points",
             };
 
-            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.ScrapTransport.PricesRequiringPermission);
-            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.Minicopter.PricesRequiringPermission);
-            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.RHIB.PricesRequiringPermission);
-            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.Rowboat.PricesRequiringPermission);
-            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.DuoSub.PricesRequiringPermission);
-            AddEnglishItemNamesForPriceConfigs(messages, _pluginConfig.Vehicles.SoloSub.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.ScrapTransport.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.Minicopter.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.RHIB.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.Rowboat.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.DuoSub.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.SoloSub.PricesRequiringPermission);
 
             lang.RegisterMessages(messages, this, "en");
         }
