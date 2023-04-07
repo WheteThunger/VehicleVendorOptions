@@ -143,12 +143,24 @@ namespace Oxide.Plugins
 
         private void OnEntitySpawned(BaseSubmarine vehicle) => HandleSpawn(vehicle);
 
-        private object OnRidableAnimalClaim(RidableHorse horse, BasePlayer player)
+        private object OnRidableAnimalClaim(RidableHorse horse, BasePlayer player, Item saddleItem)
         {
             if (!horse.IsForSale() || !HasPermissionAny(player.UserIDString, Permission_Free_All, Permission_Free_RidableHorse))
                 return null;
 
             horse.SetFlag(BaseEntity.Flags.Reserved2, false);
+            if (saddleItem != null)
+            {
+                horse.OnClaimedWithToken(saddleItem);
+            }
+            else
+            {
+                // If the saddle item is null, that means the hook is out of date, so just use one seat for now.
+                horse.SetFlag(BaseEntity.Flags.Reserved9, true, networkupdate: false);
+                horse.SetFlag(BaseEntity.Flags.Reserved10, false);
+                horse.UpdateMountFlags();
+            }
+
             horse.AttemptMount(player, doMountChecks: false);
             Interface.CallHook("OnRidableAnimalClaimed", horse, player);
             return False;
