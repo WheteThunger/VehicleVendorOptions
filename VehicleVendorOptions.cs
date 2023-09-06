@@ -11,7 +11,7 @@ using static ConversationData;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.6.0")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.6.1")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -137,7 +137,7 @@ namespace Oxide.Plugins
             _scrapItem?.Remove();
         }
 
-        private void OnEntitySpawned(MiniCopter vehicle) => HandleSpawn(vehicle);
+        private void OnEntitySpawned(PlayerHelicopter vehicle) => HandleSpawn(vehicle);
 
         private void OnEntitySpawned(MotorRowboat vehicle) => HandleSpawn(vehicle);
 
@@ -273,7 +273,7 @@ namespace Oxide.Plugins
             if (vehicle is ScrapTransportHelicopter)
                 return Permission_Ownership_ScrapHeli;
 
-            if (vehicle is MiniCopter)
+            if (vehicle is Minicopter)
                 return Permission_Ownership_MiniCopter;
 
             // Must go before MotorRowboat.
@@ -701,7 +701,7 @@ namespace Oxide.Plugins
             if (vehicle is ScrapTransportHelicopter)
                 return _config.Vehicles.ScrapTransport;
 
-            if (vehicle is MiniCopter)
+            if (vehicle is Minicopter)
                 return _config.Vehicles.Minicopter;
 
             // Must go before MotorRowboat.
