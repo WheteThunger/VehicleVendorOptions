@@ -17,30 +17,36 @@ This plugin allows configuring vehicles spawned by NPC vendors.
 
 Alternatively, you can grant permissions by vehicle type:
 
-- `vehiclevendoroptions.ownership.scraptransport`
 - `vehiclevendoroptions.ownership.minicopter`
-- `vehiclevendoroptions.ownership.rhib`
+- `vehiclevendoroptions.ownership.scraptransport`
+- `vehiclevendoroptions.ownership.attackhelicopter`
+- `vehiclevendoroptions.ownership.hotairballoon`
 - `vehiclevendoroptions.ownership.rowboat`
-- `vehiclevendoroptions.ownership.duosub`
+- `vehiclevendoroptions.ownership.rhib`
 - `vehiclevendoroptions.ownership.solosub`
+- `vehiclevendoroptions.ownership.duosub`
 - `vehiclevendoroptions.ownership.ridablehorse`
 
 ### Vehicle prices
 
 The following permissions come with this plugin's **default configuration**. Granting one to a player determines the price they must pay for the corresponding vehicle type.
 
-- `vehiclevendoroptions.price.scraptransport.scrap.800`
-- `vehiclevendoroptions.price.scraptransport.scrap.400`
 - `vehiclevendoroptions.price.minicopter.scrap.500`
 - `vehiclevendoroptions.price.minicopter.scrap.250`
-- `vehiclevendoroptions.price.rhib.scrap.200`
-- `vehiclevendoroptions.price.rhib.scrap.100`
+- `vehiclevendoroptions.price.scraptransport.scrap.800`
+- `vehiclevendoroptions.price.scraptransport.scrap.400`
+- `vehiclevendoroptions.price.attackhelicopter.scrap.1750`
+- `vehiclevendoroptions.price.attackhelicopter.scrap.1250`
+- `vehiclevendoroptions.price.hotairballoon.scrap.100`
+- `vehiclevendoroptions.price.hotairballoon.scrap.50`
 - `vehiclevendoroptions.price.rowboat.scrap.80`
 - `vehiclevendoroptions.price.rowboat.scrap.40`
-- `vehiclevendoroptions.price.duosub.scrap.200`
-- `vehiclevendoroptions.price.duosub.scrap.100`
+- `vehiclevendoroptions.price.rhib.scrap.200`
+- `vehiclevendoroptions.price.rhib.scrap.100`
 - `vehiclevendoroptions.price.solosub.scrap.125`
 - `vehiclevendoroptions.price.solosub.scrap.50`
+- `vehiclevendoroptions.price.duosub.scrap.200`
+- `vehiclevendoroptions.price.duosub.scrap.100`
 
 You can add more custom prices in the plugin configuration under each vehicle type (`PricesRequiringPermission`), and the plugin will automatically generate a permission of the format `vehiclevendoroptions.price.<vehicle>.<item>.<amount>`. If a player has permission to multiple prices for a given vehicle type, only the last will apply, based on the order in the config.
 
@@ -50,12 +56,14 @@ You can add more custom prices in the plugin configuration under each vehicle ty
 
 Alternatively, you can grant permission by vehicle type:
 
-- `vehiclevendoroptions.free.scraptransport`
 - `vehiclevendoroptions.free.minicopter`
-- `vehiclevendoroptions.free.rhib`
+- `vehiclevendoroptions.free.scraptransport`
+- `vehiclevendoroptions.free.attackhelicopter`
+- `vehiclevendoroptions.free.hotairballoon`
 - `vehiclevendoroptions.free.rowboat`
-- `vehiclevendoroptions.free.duosub`
+- `vehiclevendoroptions.free.rhib`
 - `vehiclevendoroptions.free.solosub`
+- `vehiclevendoroptions.free.duosub`
 - `vehiclevendoroptions.free.ridablehorse`
 
 Note: Having permission to free horses still requires a saddle to be in your inventory for the claim option to appear client-side, but claiming the horse will not consume the saddle.
@@ -65,12 +73,14 @@ Note: Having permission to free horses still requires a saddle to be in your inv
 To restrict vehicles to permission, set `RequiresPermission` to `true` in the plugin configuration under each vehicle type that you want to restrict. When a vehicle is restricted, players will only be allowed to purchase it if they have the corresponding permissions below.
 
 - `vehiclevendoroptions.allow.all` (all vehicles)
-- `vehiclevendoroptions.allow.scraptransport`
 - `vehiclevendoroptions.allow.minicopter`
-- `vehiclevendoroptions.allow.rhib`
+- `vehiclevendoroptions.allow.scraptransport`
+- `vehiclevendoroptions.allow.attackhelicopter`
+- `vehiclevendoroptions.allow.hotairballoon`
 - `vehiclevendoroptions.allow.rowboat`
-- `vehiclevendoroptions.allow.duosub`
+- `vehiclevendoroptions.allow.rhib`
 - `vehiclevendoroptions.allow.solosub`
+- `vehiclevendoroptions.allow.duosub`
 
 ## Configuration
 
@@ -79,21 +89,6 @@ Default configuration:
 ```json
 {
   "Vehicles": {
-    "ScrapTransport": {
-      "RequiresPermission": false,
-      "FuelAmount": 100,
-      "DespawnProtectionSeconds": 300.0,
-      "PricesRequiringPermission": [
-        {
-          "ItemShortName": "scrap",
-          "Amount": 800
-        },
-        {
-          "ItemShortName": "scrap",
-          "Amount": 400
-        }
-      ]
-    },
     "Minicopter": {
       "RequiresPermission": false,
       "FuelAmount": 100,
@@ -109,18 +104,48 @@ Default configuration:
         }
       ]
     },
-    "RHIB": {
+    "ScrapTransport": {
       "RequiresPermission": false,
-      "FuelAmount": 50,
+      "FuelAmount": 100,
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
           "ItemShortName": "scrap",
-          "Amount": 200
+          "Amount": 800
         },
         {
           "ItemShortName": "scrap",
+          "Amount": 400
+        }
+      ]
+    },
+    "AttackHelicopter": {
+      "RequiresPermission": false,
+      "FuelAmount": 100,
+      "DespawnProtectionSeconds": 300.0,
+      "PricesRequiringPermission": [
+        {
+          "ItemShortName": "scrap",
+          "Amount": 1750
+        },
+        {
+          "ItemShortName": "scrap",
+          "Amount": 1250
+        }
+      ]
+    },
+    "HotAirBalloon": {
+      "RequiresPermission": false,
+      "FuelAmount": 75,
+      "DespawnProtectionSeconds": 300.0,
+      "PricesRequiringPermission": [
+        {
+          "ItemShortName": "scrap",
           "Amount": 100
+        },
+        {
+          "ItemShortName": "scrap",
+          "Amount": 50
         }
       ]
     },
@@ -139,7 +164,7 @@ Default configuration:
         }
       ]
     },
-    "DuoSub": {
+    "RHIB": {
       "RequiresPermission": false,
       "FuelAmount": 50,
       "DespawnProtectionSeconds": 300.0,
@@ -168,6 +193,21 @@ Default configuration:
           "Amount": 50
         }
       ]
+    },
+    "DuoSub": {
+      "RequiresPermission": false,
+      "FuelAmount": 50,
+      "DespawnProtectionSeconds": 300.0,
+      "PricesRequiringPermission": [
+        {
+          "ItemShortName": "scrap",
+          "Amount": 200
+        },
+        {
+          "ItemShortName": "scrap",
+          "Amount": 100
+        }
+      ]
     }
   }
 }
@@ -191,12 +231,15 @@ Each vehicle has the following options.
     - If the Server Rewards plugin is not loaded when the player talks to the vendor, another price config will be selected for the user if they have permission to any, or else the vanilla price will be used.
 
 For reference, here are the vanilla scrap prices for vehicles.
-- ScrapTransport: `1250`
+
 - Minicopter: `750`
-- RHIB: `300`
+- ScrapTransport: `1250`
+- AttackHelicopter: `2250`
+- HotAirBalloon: `150`
 - Rowboat: `125`
-- Duo sub: `300`
+- RHIB: `300`
 - Solo sub: `200`
+- Duo sub: `300`
 
 ## Localization
 

@@ -7,12 +7,13 @@ using Oxide.Game.Rust.Cui;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using static ConversationData;
 using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.6.1")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.0")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -37,6 +38,9 @@ namespace Oxide.Plugins
 
         private Item _scrapItem;
         private readonly VehicleInfoManager _vehicleInfoManager;
+
+        private static readonly FieldInfo HotAirBalloonSpawnTimeField = typeof(HotAirBalloon).GetField("spawnTime",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         public VehicleVendorOptions()
         {
@@ -67,6 +71,8 @@ namespace Oxide.Plugins
             CostLabelUI.DestroyAll();
             _scrapItem?.Remove();
         }
+
+        private void OnEntitySpawned(HotAirBalloon vehicle) => HandleSpawn(vehicle);
 
         private void OnEntitySpawned(PlayerHelicopter vehicle) => HandleSpawn(vehicle);
 
@@ -145,7 +151,7 @@ namespace Oxide.Plugins
 
         #region Helpers
 
-        private static void AdjustFuel(BaseVehicle vehicle, int desiredFuelAmount)
+        private static void AdjustFuel(VehicleSpawner.IVehicleSpawnUser vehicle, int desiredFuelAmount)
         {
             var fuelSystem = vehicle.GetFuelSystem();
             if (fuelSystem == null)
@@ -163,7 +169,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private void HandleSpawn(BaseVehicle vehicle)
+        private void HandleSpawn(VehicleSpawner.IVehicleSpawnUser vehicle)
         {
             if (Rust.Application.isLoadingSave)
                 return;
@@ -171,21 +177,35 @@ namespace Oxide.Plugins
             var vehicle2 = vehicle;
             NextTick(() =>
             {
-                if (vehicle2.creatorEntity == null)
+                var entity = vehicle2 as BaseEntity;
+                if (entity?.creatorEntity == null)
                     return;
 
-                var vehicleConfig = _vehicleInfoManager.GetVehicleInfo(vehicle2)?.VehicleConfig;
+                var vehicleConfig = _vehicleInfoManager.GetVehicleInfo(entity)?.VehicleConfig;
                 if (vehicleConfig == null)
                     return;
 
                 AdjustFuel(vehicle2, vehicleConfig.FuelAmount);
-                MaybeSetOwner(vehicle2);
+                MaybeSetOwner(entity);
 
-                vehicle2.spawnTime += vehicleConfig.DespawnProtectionSeconds - VanillaDespawnProtectionTime;
+                var spawnTimeDelta = vehicleConfig.DespawnProtectionSeconds - VanillaDespawnProtectionTime;
+
+                var baseVehicle = entity as BaseVehicle;
+                if ((object)baseVehicle != null)
+                {
+                    baseVehicle.spawnTime += spawnTimeDelta;
+                }
+
+                var hotAirBalloon = entity as HotAirBalloon;
+                if ((object)hotAirBalloon != null && HotAirBalloonSpawnTimeField != null)
+                {
+                    var currentSpawnTime = (float)HotAirBalloonSpawnTimeField.GetValue(hotAirBalloon);
+                    HotAirBalloonSpawnTimeField.SetValue(hotAirBalloon, currentSpawnTime + spawnTimeDelta);
+                }
             });
         }
 
-        private void MaybeSetOwner(BaseVehicle vehicle)
+        private void MaybeSetOwner(BaseEntity vehicle)
         {
             var basePlayer = vehicle.creatorEntity as BasePlayer;
             if (basePlayer == null)
@@ -194,7 +214,7 @@ namespace Oxide.Plugins
             SetOwnerIfPermission(vehicle, basePlayer);
         }
 
-        private void SetOwnerIfPermission(BaseVehicle vehicle, BasePlayer basePlayer)
+        private void SetOwnerIfPermission(BaseEntity vehicle, BasePlayer basePlayer)
         {
             var vehicleInfo = _vehicleInfoManager.GetVehicleInfo(vehicle);
             if (vehicle == null)
@@ -401,6 +421,22 @@ namespace Oxide.Plugins
                         VehicleConfig = _plugin._config.Vehicles.ScrapTransport,
                         PayPrompt = "transportbuy",
                         PayAction = "buytransport",
+                    },
+                    new VehicleInfo
+                    {
+                        PrefabPath = "assets/content/vehicles/attackhelicopter/attackhelicopter.entity.prefab",
+                        PermissionSuffix = "attackheli",
+                        VehicleConfig = _plugin._config.Vehicles.AttackHelicopter,
+                        PayPrompt = "attackbuy",
+                        PayAction = "buyattack"
+                    },
+                    new VehicleInfo
+                    {
+                        PrefabPath = "assets/prefabs/deployable/hot air balloon/hotairballoon.prefab",
+                        PermissionSuffix = "hotairballoon",
+                        VehicleConfig = _plugin._config.Vehicles.HotAirBalloon,
+                        PayPrompt = "habbuy",
+                        PayAction = "buyhab"
                     },
 
                     new VehicleInfo
@@ -779,17 +815,6 @@ namespace Oxide.Plugins
 
         private class VehicleConfigMap
         {
-            [JsonProperty("ScrapTransport")]
-            public VehicleConfig ScrapTransport = new VehicleConfig()
-            {
-                FuelAmount = 100,
-                PricesRequiringPermission = new[]
-                {
-                    new PriceConfig { Amount = 800 },
-                    new PriceConfig { Amount = 400 },
-                },
-            };
-
             [JsonProperty("Minicopter")]
             public VehicleConfig Minicopter = new VehicleConfig()
             {
@@ -801,14 +826,36 @@ namespace Oxide.Plugins
                 },
             };
 
-            [JsonProperty("RHIB")]
-            public VehicleConfig RHIB = new VehicleConfig()
+            [JsonProperty("ScrapTransport")]
+            public VehicleConfig ScrapTransport = new VehicleConfig()
             {
-                FuelAmount = 50,
+                FuelAmount = 100,
                 PricesRequiringPermission = new[]
                 {
-                    new PriceConfig { Amount = 200 },
+                    new PriceConfig { Amount = 800 },
+                    new PriceConfig { Amount = 400 },
+                },
+            };
+
+            [JsonProperty("AttackHelicopter")]
+            public VehicleConfig AttackHelicopter = new VehicleConfig()
+            {
+                FuelAmount = 100,
+                PricesRequiringPermission = new[]
+                {
+                    new PriceConfig { Amount = 1750 },
+                    new PriceConfig { Amount = 1250 },
+                },
+            };
+
+            [JsonProperty("HotAirBalloon")]
+            public VehicleConfig HotAirBalloon = new VehicleConfig()
+            {
+                FuelAmount = 75,
+                PricesRequiringPermission = new[]
+                {
                     new PriceConfig { Amount = 100 },
+                    new PriceConfig { Amount = 50 },
                 },
             };
 
@@ -823,8 +870,8 @@ namespace Oxide.Plugins
                 },
             };
 
-            [JsonProperty("DuoSub")]
-            public VehicleConfig DuoSub = new VehicleConfig()
+            [JsonProperty("RHIB")]
+            public VehicleConfig RHIB = new VehicleConfig()
             {
                 FuelAmount = 50,
                 PricesRequiringPermission = new[]
@@ -842,6 +889,17 @@ namespace Oxide.Plugins
                 {
                     new PriceConfig { Amount = 125 },
                     new PriceConfig { Amount = 50 },
+                },
+            };
+
+            [JsonProperty("DuoSub")]
+            public VehicleConfig DuoSub = new VehicleConfig()
+            {
+                FuelAmount = 50,
+                PricesRequiringPermission = new[]
+                {
+                    new PriceConfig { Amount = 200 },
+                    new PriceConfig { Amount = 100 },
                 },
             };
         }
