@@ -13,7 +13,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.0")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.1")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -425,7 +425,7 @@ namespace Oxide.Plugins
                     new VehicleInfo
                     {
                         PrefabPath = "assets/content/vehicles/attackhelicopter/attackhelicopter.entity.prefab",
-                        PermissionSuffix = "attackheli",
+                        PermissionSuffix = "attackhelicopter",
                         VehicleConfig = _plugin._config.Vehicles.AttackHelicopter,
                         PayPrompt = "attackbuy",
                         PayAction = "buyattack"
@@ -1216,12 +1216,14 @@ namespace Oxide.Plugins
                 ["UI.Currency.ServerRewards"] = "{0} reward points",
             };
 
-            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.ScrapTransport.PricesRequiringPermission);
             AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.Minicopter.PricesRequiringPermission);
-            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.RHIB.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.ScrapTransport.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.AttackHelicopter.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.HotAirBalloon.PricesRequiringPermission);
             AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.Rowboat.PricesRequiringPermission);
-            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.DuoSub.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.RHIB.PricesRequiringPermission);
             AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.SoloSub.PricesRequiringPermission);
+            AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.DuoSub.PricesRequiringPermission);
 
             lang.RegisterMessages(messages, this, "en");
         }
