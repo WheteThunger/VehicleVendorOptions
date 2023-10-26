@@ -2,11 +2,11 @@
 
 This plugin allows configuring vehicles spawned by NPC vendors.
 
-- Allows configuring initial fuel amount for each vehicle type, overriding the vanilla default (50 for boats, and 20% of max stack size for helicopters)
+- Allows configuring initial fuel amount for each vehicle type, overriding the vanilla default
 - Allows assigning ownership when players purchase vehicles, so other plugins can enable features based on their permissions
 - Allows adjusting vehicle prices for players with permission
 - Allows selling vehicles for Economics or Server Rewards currency
-- Allows restricting vehicles to permission
+- Allows restricting vehicles to permission (you can completely block them this way if you want)
 - Allows configuring how long purchased vehicles can safely occupy the spawn location
 
 ## Permissions
