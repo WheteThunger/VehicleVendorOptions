@@ -951,17 +951,17 @@ namespace Oxide.Plugins
 
         private class PriceConfig
         {
-            [JsonProperty("UseEconomics", DefaultValueHandling = DefaultValueHandling.Ignore)]
-            public bool UseEconomics = false;
-
-            [JsonProperty("UseServerRewards", DefaultValueHandling = DefaultValueHandling.Ignore)]
-            public bool UseServerRewards = false;
+            [JsonProperty("Amount")]
+            public int Amount;
 
             [JsonProperty("ItemShortName", DefaultValueHandling = DefaultValueHandling.Ignore)]
             public string ItemShortName = "scrap";
 
-            [JsonProperty("Amount")]
-            public int Amount;
+            [JsonProperty("UseEconomics")]
+            public bool UseEconomics = false;
+
+            [JsonProperty("UseServerRewards")]
+            public bool UseServerRewards = false;
 
             [JsonIgnore]
             public string Permission;

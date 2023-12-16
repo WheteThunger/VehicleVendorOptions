@@ -95,12 +95,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 500,
           "ItemShortName": "scrap",
-          "Amount": 500
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 250,
           "ItemShortName": "scrap",
-          "Amount": 250
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     },
@@ -110,12 +114,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 800,
           "ItemShortName": "scrap",
-          "Amount": 800
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 400,
           "ItemShortName": "scrap",
-          "Amount": 400
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     },
@@ -125,12 +133,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 1750,
           "ItemShortName": "scrap",
-          "Amount": 1750
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 1250,
           "ItemShortName": "scrap",
-          "Amount": 1250
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     },
@@ -140,12 +152,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 100,
           "ItemShortName": "scrap",
-          "Amount": 100
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 50,
           "ItemShortName": "scrap",
-          "Amount": 50
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     },
@@ -155,12 +171,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 80,
           "ItemShortName": "scrap",
-          "Amount": 80
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 40,
           "ItemShortName": "scrap",
-          "Amount": 40
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     },
@@ -170,12 +190,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 200,
           "ItemShortName": "scrap",
-          "Amount": 200
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 100,
           "ItemShortName": "scrap",
-          "Amount": 100
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     },
@@ -185,12 +209,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 125,
           "ItemShortName": "scrap",
-          "Amount": 125
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 50,
           "ItemShortName": "scrap",
-          "Amount": 50
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     },
@@ -200,12 +228,16 @@ Default configuration:
       "DespawnProtectionSeconds": 300.0,
       "PricesRequiringPermission": [
         {
+          "Amount": 200,
           "ItemShortName": "scrap",
-          "Amount": 200
+          "UseEconomics": false,
+          "UseServerRewards": false
         },
         {
+          "Amount": 100,
           "ItemShortName": "scrap",
-          "Amount": 100
+          "UseEconomics": false,
+          "UseServerRewards": false
         }
       ]
     }
@@ -221,8 +253,8 @@ Each vehicle has the following options.
 - `DespawnProtectionSeconds` -- The amount of time that purchased vehicles will be safe in the spawn location before new ones can be spawned in their place. Reducing this is favorable in high population servers and/or where vehicles are relatively cheap.
   - Note: If you are having an issue where players cannot buy vehicles quickly enough in succession, you may want to consider using [Monument Addons](https://umod.org/plugins/monument-addons) to add more vehicle vendors to monuments.
 - `PricesRequiringPermission` -- List of prices that can be granted to players with permission. Each price config generates a permission of the format `vehiclevendoroptions.price.<vehicle>.<item>.<amount>`. Granting one to a player overrides the price they will be charged. They will also see UI text on the screen indicating what the real price is, since the vanilla UI cannot be changed.
-  - `ItemShortName` (default: `"scrap"`) -- The short name of the item to charge the player.
   - `Amount` -- The amount of items, Economics currency or Server Rewards points required to purchase the vehicle.
+  - `ItemShortName` (default: `"scrap"`) -- The short name of the item to charge the player.
   - `UseEconomics` (`true` or `false`) -- While `true`, the `Amount` represents the price in [Economics](https://umod.org/plugins/economics) currency.
     - Generated permission format: `vehiclevendoroptions.price.<vehicle>.economics.<amount>`
     - If the Economics plugin is not loaded when the player talks to the vendor, another price config will be selected for the user if they have permission to any, or else the vanilla price will be used.
