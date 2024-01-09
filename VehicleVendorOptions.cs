@@ -13,7 +13,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.1")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.2")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -258,9 +258,7 @@ namespace Oxide.Plugins
                 CostLabelUI.Create(this, player, priceConfig);
 
                 var playerScrapAmount = player.inventory.GetAmount(ScrapItemId);
-                var amountMissingForVanillaPrice = vanillaPrice - playerScrapAmount;
-
-                var canAffordVanillaPrice = amountMissingForVanillaPrice <= 0;
+                var canAffordVanillaPrice = playerScrapAmount >= vanillaPrice;
                 var canAffordCustomPrice = priceConfig.CanPlayerAfford(player);
 
                 if (canAffordCustomPrice == canAffordVanillaPrice)
@@ -268,7 +266,7 @@ namespace Oxide.Plugins
 
                 // Either the client has enough but thinks it doesn't, or doesn't have enough but thinks it does.
                 // Add or remove scrap so the vanilla logic for showing the payment option will match the custom payment logic.
-                var addOrRemoveScrapAmount = canAffordCustomPrice ? amountMissingForVanillaPrice : -playerScrapAmount;
+                var addOrRemoveScrapAmount = canAffordCustomPrice ? vanillaPrice : -playerScrapAmount;
                 PlayerInventoryUtils.UpdateWithFakeScrap(player, _scrapItem, addOrRemoveScrapAmount);
 
                 var player2 = player;
