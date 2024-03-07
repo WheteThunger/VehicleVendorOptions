@@ -13,7 +13,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.2")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.3")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -621,7 +621,7 @@ namespace Oxide.Plugins
             {
                 foreach (var condition in responseNode.conditions)
                 {
-                    if (condition.conditionType == ConversationCondition.ConditionType.HASSCRAP)
+                    if (condition.conditionType == ConversationCondition.ConditionType.HasScrap)
                         return condition;
                 }
 
