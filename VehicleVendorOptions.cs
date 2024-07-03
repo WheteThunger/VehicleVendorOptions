@@ -7,7 +7,6 @@ using Oxide.Game.Rust.Cui;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using static ConversationData;
 using static NPCTalking;
 
@@ -38,9 +37,6 @@ namespace Oxide.Plugins
 
         private Item _scrapItem;
         private readonly VehicleInfoManager _vehicleInfoManager;
-
-        private static readonly FieldInfo HotAirBalloonSpawnTimeField = typeof(HotAirBalloon).GetField("spawnTime",
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         public VehicleVendorOptions()
         {
@@ -111,8 +107,10 @@ namespace Oxide.Plugins
             return False;
         }
 
-        private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player) =>
+        private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player)
+        {
             SetOwnerIfPermission(horse, player);
+        }
 
         private object OnNpcConversationRespond(VehicleVendor vendor, BasePlayer player, ConversationData conversationData, ResponseNode responseNode)
         {
@@ -196,10 +194,9 @@ namespace Oxide.Plugins
                 }
 
                 var hotAirBalloon = entity as HotAirBalloon;
-                if ((object)hotAirBalloon != null && HotAirBalloonSpawnTimeField != null)
+                if ((object)hotAirBalloon != null)
                 {
-                    var currentSpawnTime = (float)HotAirBalloonSpawnTimeField.GetValue(hotAirBalloon);
-                    HotAirBalloonSpawnTimeField.SetValue(hotAirBalloon, currentSpawnTime + spawnTimeDelta);
+                    hotAirBalloon.spawnTime += spawnTimeDelta;
                 }
             });
         }
@@ -389,9 +386,9 @@ namespace Oxide.Plugins
         private class VehicleInfoManager
         {
             private readonly VehicleVendorOptions _plugin;
-            private readonly Dictionary<uint, VehicleInfo> _prefabIdToVehicleInfo = new Dictionary<uint, VehicleInfo>();
-            private readonly Dictionary<string, VehicleInfo> _payPromptToVehicleInfo = new Dictionary<string, VehicleInfo>();
-            private readonly Dictionary<string, VehicleInfo> _payActionToVehicleInfo = new Dictionary<string, VehicleInfo>();
+            private readonly Dictionary<uint, VehicleInfo> _prefabIdToVehicleInfo = new();
+            private readonly Dictionary<string, VehicleInfo> _payPromptToVehicleInfo = new();
+            private readonly Dictionary<string, VehicleInfo> _payActionToVehicleInfo = new();
             private VehicleInfo[] _allVehicles;
 
             public VehicleInfoManager(VehicleVendorOptions plugin)
@@ -425,7 +422,7 @@ namespace Oxide.Plugins
                         PermissionSuffix = "attackhelicopter",
                         VehicleConfig = _plugin._config.Vehicles.AttackHelicopter,
                         PayPrompt = "attackbuy",
-                        PayAction = "buyattack"
+                        PayAction = "buyattack",
                     },
                     new VehicleInfo
                     {
@@ -433,7 +430,7 @@ namespace Oxide.Plugins
                         PermissionSuffix = "hotairballoon",
                         VehicleConfig = _plugin._config.Vehicles.HotAirBalloon,
                         PayPrompt = "habbuy",
-                        PayAction = "buyhab"
+                        PayAction = "buyhab",
                     },
 
                     new VehicleInfo
@@ -473,7 +470,7 @@ namespace Oxide.Plugins
                     {
                         PrefabPath = "assets/rust.ai/nextai/testridablehorse.prefab",
                         PermissionSuffix = "ridablehorse",
-                    }
+                    },
                 };
 
                 foreach (var vehicleInfo in _allVehicles)
@@ -532,24 +529,21 @@ namespace Oxide.Plugins
 
             public VehicleInfo GetVehicleInfo(BaseEntity entity)
             {
-                VehicleInfo vehicleInfo;
-                return _prefabIdToVehicleInfo.TryGetValue(entity.prefabID, out vehicleInfo)
+                return _prefabIdToVehicleInfo.TryGetValue(entity.prefabID, out var vehicleInfo)
                     ? vehicleInfo
                     : null;
             }
 
             public VehicleInfo GetForPayPrompt(string promptName)
             {
-                VehicleInfo vehicleInfo;
-                return _payPromptToVehicleInfo.TryGetValue(promptName, out vehicleInfo)
+                return _payPromptToVehicleInfo.TryGetValue(promptName, out var vehicleInfo)
                     ? vehicleInfo
                     : null;
             }
 
             public VehicleInfo GetForPayAction(string actionName)
             {
-                VehicleInfo vehicleInfo;
-                return _payActionToVehicleInfo.TryGetValue(actionName, out vehicleInfo)
+                return _payActionToVehicleInfo.TryGetValue(actionName, out var vehicleInfo)
                     ? vehicleInfo
                     : null;
             }
@@ -568,18 +562,16 @@ namespace Oxide.Plugins
 
             public static void UpdateWithFakeScrap(BasePlayer player, Item scrapItem, int amountDiff)
             {
-                using (var containerUpdate = Facepunch.Pool.Get<ProtoBuf.UpdateItemContainer>())
-                {
-                    containerUpdate.type = (int)PlayerInventory.Type.Main;
-                    containerUpdate.container = Facepunch.Pool.Get<List<ProtoBuf.ItemContainer>>();
+                using var containerUpdate = Facepunch.Pool.Get<ProtoBuf.UpdateItemContainer>();
+                containerUpdate.type = (int)PlayerInventory.Type.Main;
+                containerUpdate.container = Facepunch.Pool.Get<List<ProtoBuf.ItemContainer>>();
 
-                    var containerInfo = player.inventory.containerMain.Save();
-                    var itemSlot = AddFakeScrapToContainerUpdate(containerInfo, scrapItem, amountDiff);
+                var containerInfo = player.inventory.containerMain.Save();
+                var itemSlot = AddFakeScrapToContainerUpdate(containerInfo, scrapItem, amountDiff);
 
-                    containerUpdate.container.Capacity = itemSlot + 1;
-                    containerUpdate.container.Add(containerInfo);
-                    player.ClientRPCPlayer(null, player, "UpdatedItemContainer", containerUpdate);
-                }
+                containerUpdate.container.Capacity = itemSlot + 1;
+                containerUpdate.container.Add(containerInfo);
+                player.ClientRPCPlayer(null, player, "UpdatedItemContainer", containerUpdate);
             }
 
             private static int AddFakeScrapToContainerUpdate(ProtoBuf.ItemContainer containerInfo, Item scrapItem, int scrapAmount)
@@ -689,7 +681,9 @@ namespace Oxide.Plugins
             public static void DestroyAll()
             {
                 foreach (var player in BasePlayer.activePlayerList)
+                {
                     Destroy(player);
+                }
             }
 
             public static void Create(VehicleVendorOptions plugin, BasePlayer player, PriceConfig priceConfig)
@@ -712,19 +706,19 @@ namespace Oxide.Plugins
                                 AnchorMin = "0.5 0.5",
                                 AnchorMax = "0.5 0.5",
                                 OffsetMin = "152 -10",
-                                OffsetMax = "428 10"
+                                OffsetMax = "428 10",
                             },
                             Text =
                             {
                                 Text = plugin.GetMessage(player, "UI.ActualPrice", itemPrice),
                                 FontSize = 11,
                                 Font = "robotocondensed-regular.ttf",
-                                Align = UnityEngine.TextAnchor.MiddleLeft
-                            }
+                                Align = UnityEngine.TextAnchor.MiddleLeft,
+                            },
                         },
                         "Overlay",
                         Name
-                    }
+                    },
                 };
 
                 CuiHelper.AddUi(player, cuiElements);
@@ -799,11 +793,15 @@ namespace Oxide.Plugins
                 _itemId = itemId;
             }
 
-            public int GetBalance(BasePlayer player) =>
-                player.inventory.GetAmount(_itemId);
+            public int GetBalance(BasePlayer player)
+            {
+                return player.inventory.GetAmount(_itemId);
+            }
 
-            public void TakeBalance(BasePlayer player, int amount) =>
+            public void TakeBalance(BasePlayer player, int amount)
+            {
                 player.inventory.Take(null, _itemId, amount);
+            }
         }
 
         #endregion
@@ -813,7 +811,7 @@ namespace Oxide.Plugins
         private class VehicleConfigMap
         {
             [JsonProperty("Minicopter")]
-            public VehicleConfig Minicopter = new VehicleConfig()
+            public VehicleConfig Minicopter = new()
             {
                 FuelAmount = 100,
                 PricesRequiringPermission = new[]
@@ -824,7 +822,7 @@ namespace Oxide.Plugins
             };
 
             [JsonProperty("ScrapTransport")]
-            public VehicleConfig ScrapTransport = new VehicleConfig()
+            public VehicleConfig ScrapTransport = new()
             {
                 FuelAmount = 100,
                 PricesRequiringPermission = new[]
@@ -835,7 +833,7 @@ namespace Oxide.Plugins
             };
 
             [JsonProperty("AttackHelicopter")]
-            public VehicleConfig AttackHelicopter = new VehicleConfig()
+            public VehicleConfig AttackHelicopter = new()
             {
                 FuelAmount = 100,
                 PricesRequiringPermission = new[]
@@ -846,7 +844,7 @@ namespace Oxide.Plugins
             };
 
             [JsonProperty("HotAirBalloon")]
-            public VehicleConfig HotAirBalloon = new VehicleConfig()
+            public VehicleConfig HotAirBalloon = new()
             {
                 FuelAmount = 75,
                 PricesRequiringPermission = new[]
@@ -857,7 +855,7 @@ namespace Oxide.Plugins
             };
 
             [JsonProperty("Rowboat")]
-            public VehicleConfig Rowboat = new VehicleConfig()
+            public VehicleConfig Rowboat = new()
             {
                 FuelAmount = 50,
                 PricesRequiringPermission = new[]
@@ -868,7 +866,7 @@ namespace Oxide.Plugins
             };
 
             [JsonProperty("RHIB")]
-            public VehicleConfig RHIB = new VehicleConfig()
+            public VehicleConfig RHIB = new()
             {
                 FuelAmount = 50,
                 PricesRequiringPermission = new[]
@@ -879,7 +877,7 @@ namespace Oxide.Plugins
             };
 
             [JsonProperty("SoloSub")]
-            public VehicleConfig SoloSub = new VehicleConfig()
+            public VehicleConfig SoloSub = new()
             {
                 FuelAmount = 50,
                 PricesRequiringPermission = new[]
@@ -890,7 +888,7 @@ namespace Oxide.Plugins
             };
 
             [JsonProperty("DuoSub")]
-            public VehicleConfig DuoSub = new VehicleConfig()
+            public VehicleConfig DuoSub = new()
             {
                 FuelAmount = 50,
                 PricesRequiringPermission = new[]
@@ -903,7 +901,7 @@ namespace Oxide.Plugins
 
         private class VehicleConfig
         {
-            private static PriceConfig FreePriceConfig = new PriceConfig { Amount = 0 };
+            private static PriceConfig FreePriceConfig = new() { Amount = 0 };
 
             [JsonProperty("RequiresPermission")]
             public bool RequiresPermission = false;
@@ -1058,10 +1056,10 @@ namespace Oxide.Plugins
         private class Configuration : BaseConfiguration
         {
             [JsonProperty("Vehicles")]
-            public VehicleConfigMap Vehicles = new VehicleConfigMap();
+            public VehicleConfigMap Vehicles = new();
         }
 
-        private Configuration GetDefaultConfig() => new Configuration();
+        private Configuration GetDefaultConfig() => new();
 
         #endregion
 
@@ -1109,13 +1107,10 @@ namespace Oxide.Plugins
 
             foreach (var key in currentWithDefaults.Keys)
             {
-                object currentRawValue;
-                if (currentRaw.TryGetValue(key, out currentRawValue))
+                if (currentRaw.TryGetValue(key, out var currentRawValue))
                 {
-                    var defaultDictValue = currentWithDefaults[key] as Dictionary<string, object>;
                     var currentDictValue = currentRawValue as Dictionary<string, object>;
-
-                    if (defaultDictValue != null)
+                    if (currentWithDefaults[key] is Dictionary<string, object> defaultDictValue)
                     {
                         if (currentDictValue == null)
                         {
@@ -1123,7 +1118,9 @@ namespace Oxide.Plugins
                             changed = true;
                         }
                         else if (MaybeUpdateConfigDict(defaultDictValue, currentDictValue))
+                        {
                             changed = true;
+                        }
                     }
                 }
                 else
