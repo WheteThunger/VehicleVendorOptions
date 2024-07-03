@@ -13,7 +13,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.3")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.4")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -153,8 +153,7 @@ namespace Oxide.Plugins
 
         private static void AdjustFuel(VehicleSpawner.IVehicleSpawnUser vehicle, int desiredFuelAmount)
         {
-            var fuelSystem = vehicle.GetFuelSystem();
-            if (fuelSystem == null)
+            if (vehicle.GetFuelSystem() is not EntityFuelSystem fuelSystem)
                 return;
 
             var fuelAmount = desiredFuelAmount < 0
