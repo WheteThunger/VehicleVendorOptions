@@ -705,8 +705,8 @@ namespace Oxide.Plugins
                             {
                                 AnchorMin = "0.5 0.5",
                                 AnchorMax = "0.5 0.5",
-                                OffsetMin = "152 -10",
-                                OffsetMax = "428 10",
+                                OffsetMin = "152 21",
+                                OffsetMax = "428 41",
                             },
                             Text =
                             {
