@@ -12,7 +12,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.4")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.5")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -750,12 +750,12 @@ namespace Oxide.Plugins
 
             public int GetBalance(BasePlayer player)
             {
-                return Convert.ToInt32(_ownerPlugin.Call("Balance", player.userID));
+                return Convert.ToInt32(_ownerPlugin.Call("Balance", (ulong)player.userID));
             }
 
             public void TakeBalance(BasePlayer player, int amount)
             {
-                _ownerPlugin.Call("Withdraw", player.userID, Convert.ToDouble(amount));
+                _ownerPlugin.Call("Withdraw", (ulong)player.userID, Convert.ToDouble(amount));
             }
         }
 
@@ -773,12 +773,12 @@ namespace Oxide.Plugins
 
             public int GetBalance(BasePlayer player)
             {
-                return Convert.ToInt32(_ownerPlugin.Call("CheckPoints", player.userID));
+                return Convert.ToInt32(_ownerPlugin.Call("CheckPoints", (ulong)player.userID));
             }
 
             public void TakeBalance(BasePlayer player, int amount)
             {
-                _ownerPlugin.Call("TakePoints", player.userID, amount);
+                _ownerPlugin.Call("TakePoints", (ulong)player.userID, amount);
             }
         }
 
