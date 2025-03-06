@@ -529,23 +529,17 @@ namespace Oxide.Plugins
 
             public VehicleInfo GetVehicleInfo(BaseEntity entity)
             {
-                return _prefabIdToVehicleInfo.TryGetValue(entity.prefabID, out var vehicleInfo)
-                    ? vehicleInfo
-                    : null;
+                return _prefabIdToVehicleInfo.GetValueOrDefault(entity.prefabID);
             }
 
             public VehicleInfo GetForPayPrompt(string promptName)
             {
-                return _payPromptToVehicleInfo.TryGetValue(promptName, out var vehicleInfo)
-                    ? vehicleInfo
-                    : null;
+                return _payPromptToVehicleInfo.GetValueOrDefault(promptName);
             }
 
             public VehicleInfo GetForPayAction(string actionName)
             {
-                return _payActionToVehicleInfo.TryGetValue(actionName, out var vehicleInfo)
-                    ? vehicleInfo
-                    : null;
+                return _payActionToVehicleInfo.GetValueOrDefault(actionName);
             }
         }
 
@@ -590,7 +584,9 @@ namespace Oxide.Plugins
                 foreach (var item in containerInfo.contents)
                 {
                     if (item.slot > highestSlot)
+                    {
                         highestSlot = item.slot;
+                    }
                 }
 
                 return highestSlot;
