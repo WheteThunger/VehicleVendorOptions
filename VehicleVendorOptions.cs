@@ -12,7 +12,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.6")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.7")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -76,7 +76,7 @@ namespace Oxide.Plugins
 
         private void OnEntitySpawned(BaseSubmarine vehicle) => HandleSpawn(vehicle);
 
-        private object OnRidableAnimalClaim(RidableHorse2 horse, BasePlayer player, Item saddleItem)
+        private object OnRidableAnimalClaim(RidableHorse horse, BasePlayer player, Item saddleItem)
         {
             if (!horse.IsForSale)
                 return null;
@@ -107,7 +107,7 @@ namespace Oxide.Plugins
             return False;
         }
 
-        private void OnRidableAnimalClaimed(RidableHorse2 horse, BasePlayer player)
+        private void OnRidableAnimalClaimed(RidableHorse horse, BasePlayer player)
         {
             SetOwnerIfPermission(horse, player);
         }
@@ -468,7 +468,7 @@ namespace Oxide.Plugins
 
                     new VehicleInfo
                     {
-                        PrefabPath = "assets/content/vehicles/horse/ridablehorse2.prefab",
+                        PrefabPath = "assets/content/vehicles/horse/ridablehorse.prefab",
                         PermissionSuffix = "ridablehorse",
                     },
                 };
