@@ -12,7 +12,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.7")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.8")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -1205,6 +1205,11 @@ namespace Oxide.Plugins
                 ["UI.Currency.Economics"] = "{0:C}",
                 ["UI.Currency.ServerRewards"] = "{0} reward points",
             };
+
+            if (Translate.englishBaseStrings == null)
+            {
+                Translate.CacheEnglishStrings();
+            }
 
             AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.Minicopter.PricesRequiringPermission);
             AddEnglishItemNamesForPriceConfigs(messages, _config.Vehicles.ScrapTransport.PricesRequiringPermission);
