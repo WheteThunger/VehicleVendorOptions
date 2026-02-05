@@ -12,7 +12,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.8")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.9")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -116,7 +116,7 @@ namespace Oxide.Plugins
         {
             CostLabelUI.Destroy(player);
 
-            var resultingSpeechNode = ConversationUtils.FindSpeechNodeByName(conversationData, responseNode.resultingSpeechNode);
+            var resultingSpeechNode = ConversationUtils.FindSpeechNodeByGuid(conversationData, responseNode.resultingSpeechNode);
             if (resultingSpeechNode == null)
                 return null;
 
@@ -124,7 +124,7 @@ namespace Oxide.Plugins
             if (vehicleInfo != null)
             {
                 // Player has selected a specific vehicle.
-                return HandlePayPrompt(vendor, player, resultingSpeechNode, vehicleInfo);
+                return HandlePayPrompt(vendor, player, conversationData, responseNode, resultingSpeechNode, vehicleInfo);
             }
 
             if (!string.IsNullOrEmpty(responseNode.actionString))
@@ -228,50 +228,61 @@ namespace Oxide.Plugins
             return permission.UserHasPermission(userIdString, perm);
         }
 
-        private object HandlePayPrompt(VehicleVendor vendor, BasePlayer player, SpeechNode resultingSpeechNode, VehicleInfo vehicleInfo)
+        private object HandlePayPrompt(VehicleVendor vendor, BasePlayer player, ConversationData conversationData,
+            ResponseNode responseNode, SpeechNodeData resultingSpeechNode, VehicleInfo vehicleInfo)
         {
             if (vehicleInfo.VehicleConfig.RequiresPermission
                 && !HasPermission(player.UserIDString, Permission_Allow_All)
                 && !HasPermission(player.UserIDString, vehicleInfo.PurchasePermission))
             {
                 // End the conversation instead of showing the option to pay.
-                ConversationUtils.ForceSpeechNode(vendor, player, ConversationUtils.SpeechNodes.Goodbye);
+                vendor.ForceEndConversation(player);
                 ChatMessage(player, "Error.Vehicle.NoPermission");
                 return False;
             }
 
-            // Player has permission, so check if we need to send a UI and fake inventory snapshot.
-            var scrapCondition = ConversationUtils.FindPayConditionInResponses(resultingSpeechNode);
-            if (scrapCondition != null)
+            // Player has permission, so check if we need to modify the response options.
+            var scrapCondition = ConversationUtils.FindPayConditionInResponses(resultingSpeechNode, out var inverseCondition);
+            if (scrapCondition == null)
+                return null;
+
+            var vanillaPrice = (int)scrapCondition.conditionAmount;
+
+            var priceConfig = vehicleInfo.VehicleConfig.GetPriceForPlayer(this, player.IPlayer, vehicleInfo.FreePermission);
+            if (priceConfig == null || priceConfig.MatchesVanillaPrice(vanillaPrice))
+                return null;
+
+            // Always send the UI if the price is custom, regardless of whether the player has enough.
+            CostLabelUI.Create(this, player, priceConfig);
+
+            var playerScrapAmount = player.inventory.GetAmount(ScrapItemId);
+            var canAffordVanillaPrice = playerScrapAmount >= vanillaPrice;
+            var canAffordCustomPrice = priceConfig.CanPlayerAfford(player);
+
+            if (canAffordCustomPrice == canAffordVanillaPrice)
+                return null;
+
+            scrapCondition.conditionAmount = (uint)priceConfig.Amount;
+            if (inverseCondition != null)
             {
-                var vanillaPrice = (int)scrapCondition.conditionAmount;
-
-                var priceConfig = vehicleInfo.VehicleConfig.GetPriceForPlayer(this, player.IPlayer, vehicleInfo.FreePermission);
-                if (priceConfig == null || priceConfig.MatchesVanillaPrice(vanillaPrice))
-                    return null;
-
-                // Always send the UI if the price is custom, regardless of whether the player has enough.
-                CostLabelUI.Create(this, player, priceConfig);
-
-                var playerScrapAmount = player.inventory.GetAmount(ScrapItemId);
-                var canAffordVanillaPrice = playerScrapAmount >= vanillaPrice;
-                var canAffordCustomPrice = priceConfig.CanPlayerAfford(player);
-
-                if (canAffordCustomPrice == canAffordVanillaPrice)
-                    return null;
-
-                // Either the client has enough but thinks it doesn't, or doesn't have enough but thinks it does.
-                // Add or remove scrap so the vanilla logic for showing the payment option will match the custom payment logic.
-                var addOrRemoveScrapAmount = canAffordCustomPrice ? vanillaPrice : -playerScrapAmount;
-                PlayerInventoryUtils.UpdateWithFakeScrap(player, _scrapItem, addOrRemoveScrapAmount);
-
-                var player2 = player;
-                // Refresh the player inventory to clear out the fake snapshot, after a few seconds.
-                // This delay needs to be long enough for the text to print out, which could vary by language.
-                player2.Invoke(() => PlayerInventoryUtils.Refresh(player2), 3f);
+                inverseCondition.conditionAmount = (uint)priceConfig.Amount;
             }
 
-            return null;
+            try
+            {
+                ConversationUtils.ForceSpeechNode(vendor, player, responseNode.resultingSpeechNode);
+            }
+            finally
+            {
+                scrapCondition.conditionAmount = (uint)vanillaPrice;
+                if (inverseCondition != null)
+                {
+                    inverseCondition.conditionAmount = (uint)vanillaPrice;
+                }
+            }
+
+            Interface.CallHook("OnNpcConversationResponded", vendor, player, conversationData, responseNode);
+            return False;
         }
 
         // This method is mostly vanilla logic, with some changes to modify the price.
@@ -298,7 +309,7 @@ namespace Oxide.Plugins
 
             if (!priceConfig.CanPlayerAfford(player))
             {
-                ConversationUtils.ForceSpeechNode(vendor, player, ConversationUtils.SpeechNodes.Goodbye);
+                vendor.ForceEndConversation(player);
                 return False;
             }
 
@@ -343,7 +354,7 @@ namespace Oxide.Plugins
                 return False;
             }
 
-            vendor.ForceSpeechNode(player, speechNodeIndex);
+            vendor.ForceSpeechNode(player, conversationData, speechNodeIndex);
             Interface.CallHook("OnNpcConversationResponded", this, player, conversationData, responseNode);
 
             return False;
@@ -545,94 +556,44 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Player Inventory Utilities
-
-        private static class PlayerInventoryUtils
-        {
-            public static void Refresh(BasePlayer player)
-            {
-                player.inventory.SendUpdatedInventory(PlayerInventory.Type.Main, player.inventory.containerMain);
-            }
-
-            public static void UpdateWithFakeScrap(BasePlayer player, Item scrapItem, int amountDiff)
-            {
-                using var containerUpdate = Facepunch.Pool.Get<ProtoBuf.UpdateItemContainer>();
-                containerUpdate.type = (int)PlayerInventory.Type.Main;
-                containerUpdate.container = Facepunch.Pool.Get<List<ProtoBuf.ItemContainer>>();
-
-                var containerInfo = player.inventory.containerMain.Save();
-                var itemSlot = AddFakeScrapToContainerUpdate(containerInfo, scrapItem, amountDiff);
-
-                containerUpdate.container.Capacity = itemSlot + 1;
-                containerUpdate.container.Add(containerInfo);
-                player.ClientRPCPlayer(null, player, "UpdatedItemContainer", containerUpdate);
-            }
-
-            private static int AddFakeScrapToContainerUpdate(ProtoBuf.ItemContainer containerInfo, Item scrapItem, int scrapAmount)
-            {
-                // Always use a separate item so it can be placed out of view.
-                var itemInfo = scrapItem.Save();
-                itemInfo.amount = scrapAmount;
-                itemInfo.slot = GetNextAvailableSlot(containerInfo);
-                containerInfo.contents.Add(itemInfo);
-                return itemInfo.slot;
-            }
-
-            private static int GetNextAvailableSlot(ProtoBuf.ItemContainer containerInfo)
-            {
-                var highestSlot = MinHiddenSlot;
-                foreach (var item in containerInfo.contents)
-                {
-                    if (item.slot > highestSlot)
-                    {
-                        highestSlot = item.slot;
-                    }
-                }
-
-                return highestSlot;
-            }
-        }
-
-        #endregion
-
         #region Conversation Utilities
 
         private static class ConversationUtils
         {
-            public static class SpeechNodes
+            public static ConversationCondition GetScrapCondition(ResponseNode responseNode, bool? inverse = null)
             {
-                public const string Goodbye = "goodbye";
+                return FindCondition(responseNode, ConversationCondition.ConditionType.HasScrap, inverse);
             }
 
-            public static ConversationCondition GetScrapCondition(ResponseNode responseNode)
+            public static ConversationCondition FindPayConditionInResponses(SpeechNodeData speechNode, out ConversationCondition inverseCondition)
             {
-                foreach (var condition in responseNode.conditions)
-                {
-                    if (condition.conditionType == ConversationCondition.ConditionType.HasScrap)
-                        return condition;
-                }
+                ConversationCondition scrapCondition = null;
+                inverseCondition = null;
 
-                return null;
-            }
-
-            public static ConversationCondition FindPayConditionInResponses(SpeechNode speechNode)
-            {
                 foreach (var futureResponseOption in speechNode.responses)
                 {
-                    var scrapCondition = GetScrapCondition(futureResponseOption);
-                    if (scrapCondition != null)
+                    var foundScrapCondition = GetScrapCondition(futureResponseOption);
+                    if (foundScrapCondition == null)
+                        continue;
+
+                    if (foundScrapCondition.inverse)
                     {
-                        return scrapCondition;
+                        inverseCondition ??= foundScrapCondition;
+                    }
+                    else
+                    {
+                        scrapCondition ??= foundScrapCondition;
                     }
                 }
 
-                return null;
+                return scrapCondition;
             }
 
-            public static void ForceSpeechNode(NPCTalking npcTalking, BasePlayer player, string speechNodeName)
+            public static void ForceSpeechNode(NPCTalking npcTalking, BasePlayer player, string speechNodeGuid)
             {
-                var speechNodeIndex = npcTalking.GetConversationFor(player).GetSpeechNodeIndex(speechNodeName);
-                npcTalking.ForceSpeechNode(player, speechNodeIndex);
+                var conversationData = npcTalking.GetConversationFor(player);
+                var speechNodeIndex = conversationData.GetSpeechNodeIndex(speechNodeGuid);
+                npcTalking.ForceSpeechNode(player, conversationData, speechNodeIndex);
             }
 
             public static NPCConversationResultAction FindResultAction(NPCTalking npcTalking, string actionString)
@@ -649,12 +610,27 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            public static SpeechNode FindSpeechNodeByName(ConversationData conversationData, string speechNodeName)
+            public static SpeechNodeData FindSpeechNodeByGuid(ConversationData conversationData, string speechNodeGuid)
             {
-                foreach (var speechNode in conversationData.speeches)
+                foreach (var speechNode in conversationData.speechNodes)
                 {
-                    if (speechNode.shortname == speechNodeName)
-                        return speechNode;
+                    if (speechNode is not SpeechNodeData speechNodeData)
+                        continue;
+
+                    if (speechNodeData.Guid == speechNodeGuid)
+                        return speechNodeData;
+                }
+
+                return null;
+            }
+
+            private static ConversationCondition FindCondition(ResponseNode responseNode, ConversationCondition.ConditionType conditionType, bool? inverse = null)
+            {
+                foreach (var condition in responseNode.conditions)
+                {
+                    if (condition.conditionType == conditionType
+                        && (inverse == null || condition.inverse == inverse))
+                        return condition;
                 }
 
                 return null;
