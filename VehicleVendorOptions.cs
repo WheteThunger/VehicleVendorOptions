@@ -29,7 +29,6 @@ namespace Oxide.Plugins
 
         private const string Permission_Price_Prefix = "vehiclevendoroptions.price";
 
-        private const int MinHiddenSlot = 24;
         private const int ScrapItemId = -932201673;
         private const float VanillaDespawnProtectionTime = 300;
 
