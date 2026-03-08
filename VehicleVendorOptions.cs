@@ -146,6 +146,19 @@ namespace Oxide.Plugins
 
         #endregion
 
+        #region Exposed Hooks
+
+        private static class ExposedHooks
+        {
+            // Standardized by ClaimVehicle.
+            public static void OnVehicleOwnershipChanged(BaseCombatEntity vehicle)
+            {
+                Interface.CallHook("OnVehicleOwnershipChanged", vehicle);
+            }
+        }
+
+        #endregion
+
         #region Helpers
 
         private static void AdjustFuel(VehicleSpawner.IVehicleSpawnUser vehicle, int desiredFuelAmount)
@@ -173,7 +186,7 @@ namespace Oxide.Plugins
             var vehicle2 = vehicle;
             NextTick(() =>
             {
-                var entity = vehicle2 as BaseEntity;
+                var entity = vehicle2 as BaseCombatEntity;
                 if (entity?.creatorEntity == null)
                     return;
 
@@ -200,7 +213,7 @@ namespace Oxide.Plugins
             });
         }
 
-        private void MaybeSetOwner(BaseEntity vehicle)
+        private void MaybeSetOwner(BaseCombatEntity vehicle)
         {
             var basePlayer = vehicle.creatorEntity as BasePlayer;
             if (basePlayer == null)
@@ -209,7 +222,7 @@ namespace Oxide.Plugins
             SetOwnerIfPermission(vehicle, basePlayer);
         }
 
-        private void SetOwnerIfPermission(BaseEntity vehicle, BasePlayer basePlayer)
+        private void SetOwnerIfPermission(BaseCombatEntity vehicle, BasePlayer basePlayer)
         {
             var vehicleInfo = _vehicleInfoManager.GetVehicleInfo(vehicle);
             if (vehicle == null)
@@ -219,6 +232,7 @@ namespace Oxide.Plugins
                 || HasPermission( basePlayer.UserIDString, vehicleInfo.OwnershipPermission))
             {
                 vehicle.OwnerID = basePlayer.userID;
+                ExposedHooks.OnVehicleOwnershipChanged(vehicle);
             }
         }
 
