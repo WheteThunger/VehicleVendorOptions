@@ -12,7 +12,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.9")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.10")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -88,7 +88,8 @@ namespace Oxide.Plugins
                 && !HasPermission(player.UserIDString, vehicleInfo.FreePermission))
                 return null;
 
-            horse.SetFlag(BaseEntity.Flags.Reserved2, false);
+            using var flagsScope = horse.StartSetFlags(BaseEntity.FlagsUpdateMode.SendNetworkUpdate_Flags);
+            flagsScope.Set(BaseEntity.Flags.Reserved2, false);
             if (saddleItem != null)
             {
                 horse.OnClaimedWithToken(saddleItem);
@@ -96,8 +97,8 @@ namespace Oxide.Plugins
             else
             {
                 // If the saddle item is null, that means the hook is out of date, so just use one seat for now.
-                horse.SetFlag(BaseEntity.Flags.Reserved9, true, networkupdate: false);
-                horse.SetFlag(BaseEntity.Flags.Reserved10, false);
+                flagsScope.Set(BaseEntity.Flags.Reserved9, true);
+                flagsScope.Set(BaseEntity.Flags.Reserved10, false);
                 horse.UpdateMountFlags();
             }
 
