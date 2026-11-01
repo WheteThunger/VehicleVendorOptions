@@ -12,7 +12,7 @@ using static NPCTalking;
 
 namespace Oxide.Plugins
 {
-    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.10")]
+    [Info("Vehicle Vendor Options", "WhiteThunder", "1.7.11")]
     [Description("Allows customizing vehicle fuel and prices at NPC vendors.")]
     internal class VehicleVendorOptions : CovalencePlugin
     {
@@ -605,7 +605,7 @@ namespace Oxide.Plugins
 
             public static void ForceSpeechNode(NPCTalking npcTalking, BasePlayer player, string speechNodeGuid)
             {
-                var conversationData = npcTalking.GetConversationFor(player);
+                var conversationData = npcTalking.GetInPersonConversationFor(player);
                 var speechNodeIndex = conversationData.GetSpeechNodeIndex(speechNodeGuid);
                 npcTalking.ForceSpeechNode(player, conversationData, speechNodeIndex);
             }
